@@ -40,30 +40,17 @@ async fn upload_epub_file(app: AppHandle) -> Result<String, String> {
         None => return Err("用户取消操作".to_string()),
     };
 
-    // 2. 读取文件字节流
-    let file_bytes = fs::read(&path).map_err(|e| format!("读取文件失败: {}", e))?;
-
-    // 3. 云端上传逻辑 (Rust reqwest)
-    let client = Client::new();
-    let api_url = "https://httpbin.org/post"; // 模拟 API Endpoint
-    
-    // 这里演示同步阻塞上传，实际生产建议使用 tokio::spawn 异步处理
-    let upload_result = client.post(api_url)
-        .body(file_bytes.clone())
-        .send();
-
-    if let Err(e) = upload_result {
-        println!("Cloud upload warning: {}", e);
-        // 这里我们可以选择报错，或者仅打印日志继续本地流程
-    }
-
     // 4. 解析 EPUB 元数据
     let mut doc = EpubDoc::new(&path).map_err(|e| format!("Epub 解析错误: {}", e))?;
-    let title = doc.mdata("title").unwrap_or("Unknown Title".to_string());
-    let author = doc.mdata("creator").unwrap_or("Unknown Author".to_string());
+    let title = doc.mdata("title")
+        .map(|item| item.value.clone())
+        .unwrap_or("Unknown Title".to_string());
+    let author = doc.mdata("creator")
+        .map(|item| item.value.clone())
+        .unwrap_or("Unknown Author".to_string());
     
     // 处理封面
-    let cover_base64 = doc.get_cover().map(|data| {
+    let cover_base64 = doc.get_cover().map(|(data, _)| {
         format!("data:image/png;base64,{}", general_purpose::STANDARD.encode(&data))
     });
 
@@ -140,8 +127,9 @@ fn get_chapter_content(app: AppHandle, book_id: i32, chapter_index: usize) -> Re
         .map_err(|_| "找不到书籍".to_string())?;
 
     let mut doc = EpubDoc::new(&path).map_err(|e| e.to_string())?;
-    doc.set_current_page(chapter_index).boolean();
-    doc.get_current_str().map_err(|e| e.to_string())
+    doc.set_current_chapter(chapter_index);
+    let (content, _) = doc.get_current_str().unwrap_or(("".to_string(), "".to_string()));
+    Ok(content.to_string())
 }
 
 #[tauri::command]

@@ -1,3 +1,7 @@
+/* src/index.css */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 确保这三行位于所有自定义 CSS 的最顶端 */

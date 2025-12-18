@@ -1,4 +1,5 @@
 import { Moon, Sun } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { Chapter, ThemeMode } from './types';
 
 interface ReaderContentProps {
@@ -9,6 +10,9 @@ interface ReaderContentProps {
 
 const ReaderContent = ({ chapter, theme, onThemeToggle }: ReaderContentProps) => {
   const isDark = theme === 'dark';
+  
+  // 清洗 HTML 内容以防止 XSS 攻击
+  const sanitizedContent = DOMPurify.sanitize(chapter.content);
 
   return (
     <section className={`w-4/5 overflow-y-auto transition-colors duration-300 relative ${
@@ -44,12 +48,12 @@ const ReaderContent = ({ chapter, theme, onThemeToggle }: ReaderContentProps) =>
             }`}></div>
           </div>
 
-          {/* Chapter Content */}
+          {/* Chapter Content - 使用清洗后的 HTML */}
           <div
             className={`leading-relaxed ${
               isDark ? 'text-neutral-300' : 'text-neutral-700'
             }`}
-            dangerouslySetInnerHTML={{ __html: chapter.content }}
+            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />
         </article>
       </div>

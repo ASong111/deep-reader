@@ -103,7 +103,37 @@ const ImmersiveReader = () => {
 
   // Reading View
   if (currentView === 'reading' && activeBook) {
-    const currentChapter = activeBook.chapters[activeChapterIndex];
+    // 防御性验证：确保章节索引在有效范围内
+    const safeChapterIndex = Math.max(
+      0, 
+      Math.min(activeChapterIndex, activeBook.chapters.length - 1)
+    );
+    
+    // 如果没有章节，显示错误状态
+    if (activeBook.chapters.length === 0) {
+      return (
+        <div className="flex flex-col h-screen bg-neutral-900">
+          <header className="h-16 bg-neutral-800 border-b border-neutral-700 flex items-center px-8 shadow-lg">
+            <button
+              onClick={handleBackToLibrary}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-medium rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to Library
+            </button>
+            <div className="ml-8 flex-1">
+              <h1 className="text-xl font-bold text-white">{activeBook.title}</h1>
+              <p className="text-sm text-neutral-400">{activeBook.author}</p>
+            </div>
+          </header>
+          <div className="flex items-center justify-center flex-1 text-neutral-400">
+            <p>此书籍没有可用章节</p>
+          </div>
+        </div>
+      );
+    }
+
+    const currentChapter = activeBook.chapters[safeChapterIndex];
 
     return (
       <div className="flex flex-col h-screen bg-neutral-900">
@@ -128,7 +158,7 @@ const ImmersiveReader = () => {
           <aside className="w-1/5 bg-neutral-800 border-r border-neutral-700 overflow-y-auto">
             <ChapterList
               chapters={activeBook.chapters}
-              activeChapterIndex={activeChapterIndex}
+              activeChapterIndex={safeChapterIndex}
               onChapterClick={handleChapterClick}
             />
           </aside>
