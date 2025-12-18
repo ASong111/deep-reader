@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import DOMPurify from "dompurify";
+// 导入沉浸式阅读器组件
+import ImmersiveReader from "./components/immersive-reader/ImmersiveReader";
 
 interface Book {
   id: number;
@@ -22,6 +24,8 @@ function App() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [currentContent, setCurrentContent] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  // 添加状态来切换 UI 模式
+  const [useImmersiveUI, setUseImmersiveUI] = useState(false);
 
   // 初始化加载书籍
   useEffect(() => {
@@ -95,6 +99,21 @@ function App() {
     }
   }
 
+  // 如果使用沉浸式 UI，直接返回新组件
+  if (useImmersiveUI) {
+    return (
+      <div className="relative">
+        <button 
+          onClick={() => setUseImmersiveUI(false)}
+          className="absolute top-4 right-4 z-50 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium shadow-lg transition-colors"
+        >
+          切换到原始 UI
+        </button>
+        <ImmersiveReader />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-neutral-50 text-gray-800 font-sans overflow-hidden">
       
@@ -103,6 +122,13 @@ function App() {
         <div className="font-bold text-xl text-indigo-600 flex items-center gap-2">
            📚 DeepReader <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">v2.0</span>
         </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setUseImmersiveUI(true)}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-md transition-colors shadow-sm"
+          >
+            🎨 尝试沉浸式 UI
+          </button>
         <button
           onClick={handleUpload}
           disabled={loading}
@@ -110,8 +136,9 @@ function App() {
             loading ? "bg-indigo-300 cursor-wait" : "bg-indigo-600 hover:bg-indigo-700 hover:shadow"
           }`}
         >
-          {loading ? "Processing..." : "Import EPUB"}
-        </button>
+            {loading ? "Processing..." : "Import EPUB"}
+          </button>
+        </div>
       </nav>
 
       <div className="flex flex-1 overflow-hidden">
