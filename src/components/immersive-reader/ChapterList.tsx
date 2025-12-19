@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Chapter } from './types';
 
 interface ChapterListProps {
@@ -6,7 +7,7 @@ interface ChapterListProps {
   onChapterClick: (index: number) => void;
 }
 
-const ChapterList = ({ chapters, activeChapterIndex, onChapterClick }: ChapterListProps) => {
+const ChapterList = memo(({ chapters, activeChapterIndex, onChapterClick }: ChapterListProps) => {
   return (
     <div className="p-6">
       <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4">
@@ -29,7 +30,7 @@ const ChapterList = ({ chapters, activeChapterIndex, onChapterClick }: ChapterLi
       </ul>
     </div>
   );
-};
+});
 
 export default ChapterList;
 

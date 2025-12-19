@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 // V2 核心 API 导入路径变更
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -27,6 +27,12 @@ function App() {
   // 添加状态来切换 UI 模式
   const [useImmersiveUI, setUseImmersiveUI] = useState(false);
 
+  // 使用 useMemo 缓存清洗后的内容
+  const sanitizedContent = useMemo(
+    () => DOMPurify.sanitize(currentContent),
+    [currentContent]
+  );
+
   // 初始化加载书籍
   useEffect(() => {
     loadBooks();
@@ -40,16 +46,27 @@ function App() {
     };
   }, []);
 
-  const loadBooks = async () => {
+  const loadBooks = useCallback(async () => {
     try {
       const list = await invoke<Book[]>("get_books");
       setBooks(list);
     } catch (e) {
       console.error("Failed to load books:", e);
     }
-  };
+  }, []);
 
-  const handleUpload = async () => {
+  useEffect(() => {
+    loadBooks();
+    const unlistenPromise = listen("book-added", () => {
+      loadBooks();
+    });
+    
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, [loadBooks]);
+
+  const handleUpload = useCallback(async () => {
     setLoading(true);
     try {
       // 调用 Rust 指令，该指令会打开原生文件对话框
@@ -61,9 +78,9 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadBooks]);
 
-  const handleBookClick = async (id: number) => {
+  const handleBookClick = useCallback(async (id: number) => {
     setSelectedBookId(id);
     try {
       const toc = await invoke<Chapter[]>("get_book_details", { id });
@@ -74,19 +91,18 @@ function App() {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [loadBooks]);
 
-  const handleChapterClick = async (bookId: number, index: number) => {
+  const handleChapterClick = useCallback(async (bookId: number, index: number) => {
     try {
       const html = await invoke<string>("get_chapter_content", { bookId, chapterIndex: index });
-      // 清洗 HTML
-      setCurrentContent(DOMPurify.sanitize(html)); 
+      setCurrentContent(html); // 不在这里 sanitize，移到 useMemo
     } catch (e) {
       console.error(e);
     }
-  };
+  }, []);
 
-  const handleRemove = async (e: React.MouseEvent, id: number) => {
+  const handleRemove = useCallback(async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
     if(confirm("确定移除这本书吗?")) {
         await invoke("remove_book", { id });
@@ -97,7 +113,7 @@ function App() {
             setCurrentContent("");
         }
     }
-  }
+  }, [loadBooks, selectedBookId]);
 
   // 如果使用沉浸式 UI，直接返回新组件
   if (useImmersiveUI) {
@@ -210,7 +226,7 @@ function App() {
             <div className="flex-1 overflow-y-auto px-12 py-10 w-full mx-auto">
                 <article className="prose prose-slate prose-lg max-w-3xl mx-auto">
                     {/* 阅读器内容 */}
-                    <div dangerouslySetInnerHTML={{ __html: currentContent }} />
+                    <div dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
                 </article>
             </div>
           ) : (

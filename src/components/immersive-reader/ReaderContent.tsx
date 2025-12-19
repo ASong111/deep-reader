@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Chapter, ThemeMode } from './types';
@@ -8,11 +9,14 @@ interface ReaderContentProps {
   onThemeToggle: () => void;
 }
 
-const ReaderContent = ({ chapter, theme, onThemeToggle }: ReaderContentProps) => {
+const ReaderContent = memo(({ chapter, theme, onThemeToggle }: ReaderContentProps) => {
   const isDark = theme === 'dark';
   
-  // 清洗 HTML 内容以防止 XSS 攻击
-  const sanitizedContent = DOMPurify.sanitize(chapter.content);
+  // 使用 useMemo 缓存清洗后的 HTML
+  const sanitizedContent = useMemo(
+    () => DOMPurify.sanitize(chapter.content),
+    [chapter.content]
+  );
 
   return (
     <section className={`w-4/5 overflow-y-auto transition-colors duration-300 relative ${
@@ -59,7 +63,9 @@ const ReaderContent = ({ chapter, theme, onThemeToggle }: ReaderContentProps) =>
       </div>
     </section>
   );
-};
+});
+
+ReaderContent.displayName = 'ReaderContent';
 
 export default ReaderContent;
 

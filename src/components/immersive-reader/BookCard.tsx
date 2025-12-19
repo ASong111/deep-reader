@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { BookOpen } from 'lucide-react';
 import { Book } from './types';
 
@@ -6,11 +7,12 @@ interface BookCardProps {
   onClick: (book: Book) => void;
 }
 
-const BookCard = ({ book, onClick }: BookCardProps) => {
+const BookCard = memo(({ book, onClick }: BookCardProps) => {
   return (
     <div
       onClick={() => onClick(book)}
-      className="bg-neutral-800 rounded-xl overflow-hidden cursor-pointer transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-2xl border border-neutral-700 hover:border-blue-500"
+      // 移除 transform hover:scale-105，改用更轻量的效果
+      className="bg-neutral-800 rounded-xl overflow-hidden cursor-pointer transition-shadow duration-200 shadow-lg hover:shadow-2xl border border-neutral-700 hover:border-blue-500"
     >
       {/* Book Cover */}
       <div className={`h-64 ${book.coverColor} flex items-center justify-center relative`}>
@@ -40,7 +42,7 @@ const BookCard = ({ book, onClick }: BookCardProps) => {
       </div>
     </div>
   );
-};
+});
 
 export default BookCard;
 
