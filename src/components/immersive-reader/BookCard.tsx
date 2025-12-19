@@ -15,9 +15,19 @@ const BookCard = memo(({ book, onClick }: BookCardProps) => {
       className="bg-neutral-800 rounded-xl overflow-hidden cursor-pointer transition-shadow duration-200 shadow-lg hover:shadow-2xl border border-neutral-700 hover:border-blue-500"
     >
       {/* Book Cover */}
-      <div className={`h-64 ${book.coverColor} flex items-center justify-center relative`}>
-        <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-        <BookOpen className="w-20 h-20 text-white opacity-40 relative z-10" />
+      <div className={`h-64 ${book.coverImage ? '' : book.coverColor} flex items-center justify-center relative overflow-hidden`}>
+        {book.coverImage ? (
+          <img 
+            src={book.coverImage} 
+            alt={book.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-black bg-opacity-20"></div>
+            <BookOpen className="w-20 h-20 text-white opacity-40 relative z-10" />
+          </>
+        )}
       </div>
 
       {/* Book Info */}

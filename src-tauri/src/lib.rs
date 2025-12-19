@@ -7,6 +7,7 @@ use base64::{Engine as _, engine::general_purpose};
 use reqwest::blocking::Client;
 use serde::{Serialize};
 use tauri::Builder;
+use regex::Regex;
 
 mod db;
 
@@ -127,9 +128,38 @@ fn get_chapter_content(app: AppHandle, book_id: i32, chapter_index: usize) -> Re
         .map_err(|_| "找不到书籍".to_string())?;
 
     let mut doc = EpubDoc::new(&path).map_err(|e| e.to_string())?;
-    doc.set_current_chapter(chapter_index);
-    let (content, _) = doc.get_current_str().unwrap_or(("".to_string(), "".to_string()));
-    Ok(content.to_string())
+    // 检查 set_current_chapter 是否成功
+    if !doc.set_current_chapter(chapter_index) {
+        return Err(format!("无法设置章节 {}", chapter_index));
+    }
+    
+    let (mut content, _) = doc.get_current_str()
+        .ok_or_else(|| "无法获取章节内容".to_string())?;
+    
+    // 处理图片资源：将 EPUB 内部图片转换为 base64
+    let img_regex = regex::Regex::new(r#"<img[^>]*src="([^"]+)"[^>]*>"#).unwrap();
+    for cap in img_regex.captures_iter(&content.clone()) {
+        if let Some(src) = cap.get(1) {
+            let src_str = src.as_str();
+            // 尝试从 EPUB 中获取资源
+            if let Some(data) = doc.get_resource_by_path(src_str) {
+                // 根据扩展名推断 MIME 类型
+                let mime = match src_str.rsplit('.').next().unwrap_or("").to_lowercase().as_str() {
+                    "png" => "image/png",
+                    "jpg" | "jpeg" => "image/jpeg",
+                    "gif" => "image/gif",
+                    "webp" => "image/webp",
+                    "svg" => "image/svg+xml",
+                    _ => "application/octet-stream",
+                };
+                let base64_data = general_purpose::STANDARD.encode(&data);
+                let data_uri = format!("data:{};base64,{}", mime, base64_data);
+                content = content.replace(src_str, &data_uri);
+            }
+        }
+    }
+    
+    Ok(content)
 }
 
 #[tauri::command]

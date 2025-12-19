@@ -25,7 +25,7 @@ function App() {
   const [currentContent, setCurrentContent] = useState<string>("");
   const [loading, setLoading] = useState(false);
   // 添加状态来切换 UI 模式
-  const [useImmersiveUI, setUseImmersiveUI] = useState(false);
+  const [useImmersiveUI, setUseImmersiveUI] = useState(true);
 
   // 使用 useMemo 缓存清洗后的内容
   const sanitizedContent = useMemo(
@@ -117,17 +117,18 @@ function App() {
 
   // 如果使用沉浸式 UI，直接返回新组件
   if (useImmersiveUI) {
-    return (
-      <div className="relative">
-        <button 
-          onClick={() => setUseImmersiveUI(false)}
-          className="absolute top-4 right-4 z-50 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium shadow-lg transition-colors"
-        >
-          切换到原始 UI
-        </button>
-        <ImmersiveReader />
-      </div>
-    );
+    // return (
+    //   <div className="relative">
+    //     <button 
+    //       onClick={() => setUseImmersiveUI(false)}
+    //       className="absolute top-4 right-4 z-50 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium shadow-lg transition-colors"
+    //     >
+    //       切换到原始 UI
+    //     </button>
+    //     <ImmersiveReader />
+    //   </div>
+    // );
+    return <ImmersiveReader />;
   }
 
   return (
@@ -193,8 +194,8 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col h-full bg-white">
-               <div className="p-3 border-b border-gray-100 bg-gray-50 flex items-center">
+            <div className="flex flex-col h-full bg-gray-50">
+               <div className="p-3 border-b border-gray-200 bg-gray-50 flex items-center">
                  <button 
                    onClick={() => setSelectedBookId(null)}
                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
@@ -221,7 +222,7 @@ function App() {
         </aside>
 
         {/* 右侧窗格: 阅读器 (65%+) */}
-        <main className="flex-1 bg-white overflow-hidden relative flex flex-col h-full">
+        <main className="flex-1 bg-white overflow-hidden relative flex flex-col h-full border-l border-gray-200">
           {selectedBookId ? (
             <div className="flex-1 overflow-y-auto px-12 py-10 w-full mx-auto">
                 <article className="prose prose-slate prose-lg max-w-3xl mx-auto">

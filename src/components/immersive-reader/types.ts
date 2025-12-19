@@ -9,6 +9,7 @@ export interface Book {
   title: string;
   author: string;
   coverColor: string;
+  coverImage?: string | null; // 可选的封面图片（base64）
   progress: number;
   chapters: Chapter[];
 }
