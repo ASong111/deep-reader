@@ -11,7 +11,7 @@ const ChapterList = memo(({ chapters, activeChapterIndex, onChapterClick }: Chap
   return (
     <div className="p-6">
       <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4">
-        Chapters
+        章节目录
       </h2>
       <ul className="space-y-1">
         {chapters.map((chapter, index) => (

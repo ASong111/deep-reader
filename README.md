@@ -16,4 +16,7 @@ pnpm add @tauri-apps/api @tauri-apps/plugin-dialog @tauri-apps/plugin-http
 pnpm add dompurify @types/dompurify
 # 启动项目
 pnpm tauri dev
+# 构建项目
+npm run build:prod
+npm run build:win
 ```

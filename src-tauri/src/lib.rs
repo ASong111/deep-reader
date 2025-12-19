@@ -130,7 +130,7 @@ fn get_book_details(app: AppHandle, id: i32) -> Result<Vec<ChapterInfo>, String>
     // 简单获取章节列表
     for i in 0..doc.get_num_pages() {
         chapters.push(ChapterInfo {
-            title: format!("Chapter {}", i + 1), 
+            title: format!("章节 {}", i + 1), 
             id: i.to_string(), 
         });
     }

@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 // V2 核心 API 导入路径变更
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import DOMPurify from "dompurify";
 // 导入沉浸式阅读器组件
 import ImmersiveReader from "./components/immersive-reader/ImmersiveReader";
@@ -19,7 +18,7 @@ interface Chapter {
 }
 
 function App() {
-  const [books, setBooks] = useState<Book[]>([]);
+  const [books] = useState<Book[]>([]);
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [currentContent, setCurrentContent] = useState<string>("");
@@ -186,7 +185,7 @@ function App() {
                    onClick={() => setSelectedBookId(null)}
                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
                  >
-                   <span>&larr;</span> Back to Library
+                   <span>&larr;</span> 返回图书馆
                  </button>
                </div>
                <div className="p-4 overflow-y-auto flex-1">

@@ -223,7 +223,7 @@ const ImmersiveReader = () => {
         <header className="h-16 bg-neutral-800 border-b border-neutral-700 flex items-center justify-between px-8 shadow-lg">
           <div className="flex items-center gap-3">
             <BookOpen className="w-8 h-8 text-blue-400" />
-            <h1 className="text-2xl font-bold text-white">Library View</h1>
+            <h1 className="text-2xl font-bold text-white">图书馆</h1>
           </div>
           <button
             onClick={handleImportBook}
@@ -233,7 +233,7 @@ const ImmersiveReader = () => {
             }`}
           >
             <Plus className="w-5 h-5" />
-            {loading ? '导入中...' : 'Import Book'}
+            {loading ? '导入中...' : '导入图书'}
           </button>
         </header>
 
@@ -277,7 +277,7 @@ const ImmersiveReader = () => {
               className="flex items-center gap-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-medium rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
-              Back to Library
+              返回图书馆
             </button>
             <div className="ml-8 flex-1">
               <h1 className="text-xl font-bold text-white">{activeBook.title}</h1>
@@ -302,7 +302,7 @@ const ImmersiveReader = () => {
             className="flex items-center gap-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-medium rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
-            Back to Library
+            返回图书馆
           </button>
           <div className="ml-8 flex-1">
             <h1 className="text-xl font-bold text-white">{activeBook.title}</h1>
