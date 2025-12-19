@@ -33,38 +33,25 @@ function App() {
     [currentContent]
   );
 
-  // 初始化加载书籍
-  useEffect(() => {
-    loadBooks();
-    // 监听 Rust 发出的事件
-    const unlistenPromise = listen("book-added", () => {
-        loadBooks();
-    });
-    
-    return () => {
-        unlistenPromise.then((unlisten) => unlisten());
-    };
-  }, []);
+  // const loadBooks = useCallback(async () => {
+  //   try {
+  //     const list = await invoke<Book[]>("get_books");
+  //     setBooks(list);
+  //   } catch (e) {
+  //     console.error("Failed to load books:", e);
+  //   }
+  // }, []);
 
-  const loadBooks = useCallback(async () => {
-    try {
-      const list = await invoke<Book[]>("get_books");
-      setBooks(list);
-    } catch (e) {
-      console.error("Failed to load books:", e);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadBooks();
-    const unlistenPromise = listen("book-added", () => {
-      loadBooks();
-    });
+  // useEffect(() => {
+  //   loadBooks();
+  //   const unlistenPromise = listen("book-added", () => {
+  //     loadBooks();
+  //   });
     
-    return () => {
-      unlistenPromise.then((unlisten) => unlisten());
-    };
-  }, [loadBooks]);
+  //   return () => {
+  //     unlistenPromise.then((unlisten) => unlisten());
+  //   };
+  // }, [loadBooks]);
 
   const handleUpload = useCallback(async () => {
     setLoading(true);
@@ -72,13 +59,12 @@ function App() {
       // 调用 Rust 指令，该指令会打开原生文件对话框
       const msg = await invoke("upload_epub_file");
       alert(msg);
-      loadBooks();
     } catch (error) {
       alert(`Upload Failed: ${error}`);
     } finally {
       setLoading(false);
     }
-  }, [loadBooks]);
+  }, []);
 
   const handleBookClick = useCallback(async (id: number) => {
     setSelectedBookId(id);
@@ -91,7 +77,7 @@ function App() {
     } catch (e) {
       console.error(e);
     }
-  }, [loadBooks]);
+  }, []);
 
   const handleChapterClick = useCallback(async (bookId: number, index: number) => {
     try {
@@ -106,14 +92,14 @@ function App() {
     e.stopPropagation();
     if(confirm("确定移除这本书吗?")) {
         await invoke("remove_book", { id });
-        loadBooks();
+        // loadBooks();
         if (selectedBookId === id) {
             setSelectedBookId(null);
             setChapters([]);
             setCurrentContent("");
         }
     }
-  }, [loadBooks, selectedBookId]);
+  }, [ selectedBookId]);
 
   // 如果使用沉浸式 UI，直接返回新组件
   if (useImmersiveUI) {

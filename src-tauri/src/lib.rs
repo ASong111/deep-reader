@@ -11,7 +11,7 @@ use regex::Regex;
 
 mod db;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct Book {
     id: i32,
     title: String,
@@ -78,17 +78,26 @@ async fn upload_epub_file(app: AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 fn get_books(app: AppHandle) -> Result<Vec<Book>, String> {
+    println!("get_books--------------------------------------------");
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
     
     let mut stmt = conn.prepare("SELECT id, title, author, cover_image FROM books ORDER BY id DESC")
         .map_err(|e| e.to_string())?;
-    
+
+    // println!("stmt: {:?}", &stmt);
     let book_iter = stmt.query_map([], |row| {
+        let title: String = row.get(1)?;
+        let author: String = row.get(2)?;
+        
+        // 确保字符串是有效的 UTF-8（虽然 String 本身应该是）
+        // 如果数据库存储有问题，这里可以尝试修复
+        let title = String::from_utf8_lossy(title.as_bytes()).to_string();
+        let author = String::from_utf8_lossy(author.as_bytes()).to_string();
         Ok(Book {
             id: row.get(0)?,
-            title: row.get(1)?,
-            author: row.get(2)?,
+            title,
+            author,
             cover_image: row.get(3)?,
         })
     }).map_err(|e| e.to_string())?;
@@ -96,6 +105,14 @@ fn get_books(app: AppHandle) -> Result<Vec<Book>, String> {
     let mut books = Vec::new();
     for book in book_iter {
         books.push(book.map_err(|e| e.to_string())?);
+    };
+    for book in &books {
+        println!("book: {:?} {:?} {:?}", &book.id, &book.title, &book.author);
+    }
+    // 显式序列化为 JSON 查看
+    if let Ok(json_str) = serde_json::to_string(&books) {
+        println!("Serialized JSON (first 500 chars): {}", 
+            &json_str.chars().take(500).collect::<String>());
     }
     Ok(books)
 }

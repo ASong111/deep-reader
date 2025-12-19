@@ -59,7 +59,21 @@ const ImmersiveReader = () => {
   const loadBooks = useCallback(async () => {
     try {
       const backendBooks = await invoke<BackendBook[]>("get_books");
+      // 添加详细的调试信息
+      console.log("backendBooks raw: ", backendBooks);
+      console.log("backendBooks JSON: ", JSON.stringify(backendBooks, null, 2));
+      // 检查第一个元素的编码
+      if (backendBooks.length > 0) {
+        const first = backendBooks[0];
+        console.log("First book title (raw):", first.title);
+        console.log("First book title (char codes):", 
+        Array.from(first.title).map(c => c.charCodeAt(0)));
+        console.log("First book author (raw):", first.author);
+        console.log("First book author (char codes):", 
+        Array.from(first.author).map(c => c.charCodeAt(0)));
+      }
       const convertedBooks = backendBooks.map(convertBackendBookToBook);
+      console.log("convertedBooks: ", convertedBooks);
       setBooks(convertedBooks);
     } catch (e) {
       console.error("Failed to load books:", e);

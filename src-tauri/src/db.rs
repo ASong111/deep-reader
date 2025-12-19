@@ -3,6 +3,8 @@ use std::path::Path;
 
 pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
     let conn = Connection::open(path)?;
+
+    conn.execute("PRAGMA encoding = 'UTF-8'", [])?;
     
     conn.execute(
         "CREATE TABLE IF NOT EXISTS books (
