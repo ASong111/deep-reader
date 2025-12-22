@@ -3,9 +3,13 @@ import { BookOpen, ArrowLeft, Plus } from 'lucide-react';
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Book, ViewMode, ThemeMode } from './types';
+import { Note, Category, Tag } from '../../types/notes';
 import BookCard from './BookCard';
 import ChapterList from './ChapterList';
 import ReaderContent from './ReaderContent';
+import NoteSidebar from '../notes/NoteSidebar';
+import NoteDetailPanel from '../notes/NoteDetailPanel';
+import CreateNoteDialog from '../notes/CreateNoteDialog';
 
 // 后端返回的书籍类型
 interface BackendBook {
@@ -28,6 +32,15 @@ const ImmersiveReader = () => {
   const [activeChapterIndex, setActiveChapterIndex] = useState<number>(0);
   const [readerTheme, setReaderTheme] = useState<ThemeMode>('light');
   const [loading, setLoading] = useState(false);
+
+  // 笔记相关状态
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [isCreateNoteDialogOpen, setIsCreateNoteDialogOpen] = useState(false);
+  const [highlightedText, setHighlightedText] = useState<string>("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [notesRefreshKey, setNotesRefreshKey] = useState(0);
+  const [chapterNotes, setChapterNotes] = useState<Note[]>([]);
 
   // 将后端书籍数据转换为前端格式
   const convertBackendBookToBook = useCallback((backendBook: BackendBook): Book => {
@@ -215,6 +228,116 @@ const ImmersiveReader = () => {
     setReaderTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
+  // 加载分类和标签
+  const loadCategoriesAndTags = useCallback(async () => {
+    try {
+      const [categoriesData, tagsData] = await Promise.all([
+        invoke<Category[]>("get_categories"),
+        invoke<Tag[]>("get_tags"),
+      ]);
+      setCategories(categoriesData);
+      setTags(tagsData);
+    } catch (error) {
+      console.error("加载分类和标签失败:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCategoriesAndTags();
+  }, [loadCategoriesAndTags]);
+
+  // 加载当前章节的笔记
+  const loadChapterNotes = useCallback(async () => {
+    if (!activeBook) return;
+    try {
+      const allNotes = await invoke<Note[]>("get_notes", { categoryId: null, tagId: null });
+      const filtered = allNotes.filter(n => 
+        n.book_id === activeBook.id && n.chapter_index === activeChapterIndex
+      );
+      setChapterNotes(filtered);
+    } catch (error) {
+      console.error("加载章节笔记失败:", error);
+    }
+  }, [activeBook, activeChapterIndex]);
+
+  useEffect(() => {
+    loadChapterNotes();
+  }, [loadChapterNotes, notesRefreshKey]);
+
+  // 处理标注（高亮/下划线）
+  const handleAnnotate = useCallback(async (text: string, type: 'highlight' | 'underline') => {
+    if (!activeBook) return;
+
+    try {
+      // 自动创建笔记
+      const request = {
+        title: text.length > 20 ? text.substring(0, 20) + "..." : text,
+        content: "", // 默认内容为空
+        book_id: activeBook.id,
+        chapter_index: activeChapterIndex,
+        highlighted_text: text,
+        annotation_type: type,
+      };
+
+      await invoke("create_note", { request });
+      setNotesRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error("创建标注失败:", error);
+    }
+  }, [activeBook, activeChapterIndex]);
+
+  // 处理点击标注
+  const handleNoteClick = useCallback(async (noteId: number) => {
+    try {
+      const note = await invoke<Note>("get_note", { id: noteId });
+      setSelectedNote(note);
+    } catch (error) {
+      console.error("获取笔记失败:", error);
+    }
+  }, []);
+
+  // 处理文本选择并创建笔记
+  const handleTextSelection = useCallback((text: string) => {
+    setHighlightedText(text);
+    setIsCreateNoteDialogOpen(true);
+  }, []);
+
+  // 处理创建笔记成功
+  const handleNoteCreated = useCallback(() => {
+    setNotesRefreshKey(prev => prev + 1);
+    setIsCreateNoteDialogOpen(false);
+    setHighlightedText("");
+  }, []);
+
+  // 处理笔记选择
+  const handleNoteSelect = useCallback((note: Note) => {
+    setSelectedNote(note);
+  }, []);
+
+  // 处理笔记更新
+  const handleNoteUpdate = useCallback(() => {
+    setNotesRefreshKey(prev => prev + 1);
+    if (selectedNote) {
+      // 重新加载选中的笔记
+      invoke<Note[]>("get_notes", { categoryId: null, tagId: null })
+      .then(notes => {
+        const updatedNote = notes.find(n => n.id === selectedNote.id);
+        if (updatedNote) {
+          setSelectedNote(updatedNote);
+        }
+      })
+      .catch(console.error);
+    }
+  }, [selectedNote]);
+
+  // 处理笔记删除
+  const handleNoteDelete = useCallback((id: number) => {
+    if (selectedNote?.id === id) {
+      setSelectedNote(null);
+    }
+    setNotesRefreshKey(prev => prev + 1);
+  }, [selectedNote]);
+
   // Library View
   if (currentView === 'library') {
     return (
@@ -259,15 +382,13 @@ const ImmersiveReader = () => {
     );
   }
 
-  // Reading View
+  // Reading View - 修改这部分
   if (currentView === 'reading' && activeBook) {
-    // 防御性验证：确保章节索引在有效范围内
     const safeChapterIndex = Math.max(
       0, 
       Math.min(activeChapterIndex, activeBook.chapters.length - 1)
     );
     
-    // 如果没有章节，显示错误状态
     if (activeBook.chapters.length === 0) {
       return (
         <div className="flex flex-col h-screen bg-neutral-900">
@@ -310,10 +431,22 @@ const ImmersiveReader = () => {
           </div>
         </header>
 
-        {/* Split Layout: Chapters + Content */}
+        {/* 三栏布局：笔记侧边栏 + 章节列表 + 阅读内容 + 笔记详情 */}
         <main className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar: Chapters (20% / 1/5) */}
-          <aside className="w-1/5 bg-neutral-800 border-r border-neutral-700 overflow-y-auto">
+          {/* 左侧：笔记侧边栏 (20%) */}
+          <div className="w-1/5 bg-neutral-800 border-r border-neutral-700">
+            <NoteSidebar
+              selectedNoteId={selectedNote?.id || null}
+              onSelectNote={handleNoteSelect}
+              onCreateNote={() => setIsCreateNoteDialogOpen(true)}
+              currentBookId={activeBook.id}
+              currentChapterIndex={safeChapterIndex}
+              key={notesRefreshKey}
+            />
+          </div>
+
+          {/* 中间左侧：章节列表 (15%) */}
+          <aside className="w-[15%] bg-neutral-800 border-r border-neutral-700 overflow-y-auto">
             <ChapterList
               chapters={activeBook.chapters}
               activeChapterIndex={safeChapterIndex}
@@ -321,13 +454,43 @@ const ImmersiveReader = () => {
             />
           </aside>
 
-          {/* Right Content: Chapter Text (80% / 4/5) */}
+          {/* 中间：阅读内容 (40%) */}
           <ReaderContent
             chapter={currentChapter}
             theme={readerTheme}
             onThemeToggle={toggleReaderTheme}
+            onTextSelection={handleTextSelection}
+            bookId={activeBook.id}
+            chapterIndex={safeChapterIndex}
+            notes={chapterNotes}
+            onAnnotate={handleAnnotate}
+            onNoteClick={handleNoteClick}
           />
+
+          {/* 右侧：笔记详情面板 (25%) */}
+          <div className="w-1/4 bg-neutral-800 border-l border-neutral-700">
+            <NoteDetailPanel
+              note={selectedNote}
+              onUpdate={handleNoteUpdate}
+              onDelete={handleNoteDelete}
+              categories={categories}
+              tags={tags}
+            />
+          </div>
         </main>
+
+        {/* 创建笔记对话框 */}
+        <CreateNoteDialog
+          isOpen={isCreateNoteDialogOpen}
+          onClose={() => {
+            setIsCreateNoteDialogOpen(false);
+            setHighlightedText("");
+          }}
+          onSuccess={handleNoteCreated}
+          highlightedText={highlightedText}
+          bookId={activeBook.id}
+          chapterIndex={safeChapterIndex}
+        />
       </div>
     );
   }
