@@ -392,7 +392,80 @@ fn call_ai_assistant(app: AppHandle, request: AIRequest) -> Result<String, Strin
     Ok(response_text)
 }
 
+// AI助手：总结笔记
+#[tauri::command]
+fn summarize_note(app: AppHandle, note_id: i32) -> Result<String, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    let key = get_encryption_key(&app)?;
+    let note = get_note_by_id_with_decrypt(&conn, note_id, &key)?;
+    
+    let request = AIRequest {
+        note_content: note.content.unwrap_or_default(),
+        note_title: note.title,
+        highlighted_text: note.highlighted_text,
+        action: "summarize".to_string(),
+    };
+    
+    call_ai_assistant(app, request)
+}
+
+// AI助手：生成问题
+#[tauri::command]
+fn generate_questions(app: AppHandle, note_id: i32) -> Result<String, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    let key = get_encryption_key(&app)?;
+    let note = get_note_by_id_with_decrypt(&conn, note_id, &key)?;
+    
+    let request = AIRequest {
+        note_content: note.content.unwrap_or_default(),
+        note_title: note.title,
+        highlighted_text: note.highlighted_text,
+        action: "questions".to_string(),
+    };
+    
+    call_ai_assistant(app, request)
+}
+
+// AI助手：扩展笔记
+#[tauri::command]
+fn expand_note(app: AppHandle, note_id: i32) -> Result<String, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    let key = get_encryption_key(&app)?;
+    let note = get_note_by_id_with_decrypt(&conn, note_id, &key)?;
+    
+    let request = AIRequest {
+        note_content: note.content.unwrap_or_default(),
+        note_title: note.title,
+        highlighted_text: note.highlighted_text,
+        action: "expand".to_string(),
+    };
+    
+    call_ai_assistant(app, request)
+}
+
+// AI助手：获取建议
+#[tauri::command]
+fn get_ai_suggestion(app: AppHandle, note_id: i32) -> Result<String, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    let key = get_encryption_key(&app)?;
+    let note = get_note_by_id_with_decrypt(&conn, note_id, &key)?;
+    
+    let request = AIRequest {
+        note_content: note.content.unwrap_or_default(),
+        note_title: note.title,
+        highlighted_text: note.highlighted_text,
+        action: "suggestions".to_string(),
+    };
+    
+    call_ai_assistant(app, request)
+}
+
 mod db;
+mod encryption;
 
 #[derive(Serialize, Debug)]
 struct Book {
@@ -411,6 +484,18 @@ struct ChapterInfo {
 // 辅助函数：获取数据库路径
 fn get_db_path(app: &AppHandle) -> PathBuf {
     app.path().app_data_dir().expect("failed to get app data dir").join("library.db")
+}
+
+// 辅助函数：获取加密密钥路径
+fn get_key_path(app: &AppHandle) -> PathBuf {
+    app.path().app_data_dir().expect("failed to get app data dir").join("encryption.key")
+}
+
+// 辅助函数：获取或创建加密密钥
+fn get_encryption_key(app: &AppHandle) -> Result<Vec<u8>, String> {
+    let key_path = get_key_path(app);
+    encryption::get_or_create_key(&key_path)
+        .map_err(|e| format!("获取加密密钥失败: {}", e))
 }
 
 // 1. 上传文件管道：打开对话框 -> 读取 -> 上传云端 -> 存入本地 DB
@@ -585,6 +670,7 @@ pub struct Note {
     pub tags: Vec<Tag>,
     pub created_at: String,
     pub updated_at: String,
+    pub deleted_at: Option<String>,
 }
 
 #[derive(Serialize, Debug)]
@@ -629,6 +715,13 @@ pub struct SearchNotesRequest {
     pub query: String,
     pub category_id: Option<i32>,
     pub tag_id: Option<i32>,
+    pub tag_ids: Option<Vec<i32>>, // 多标签筛选
+    pub start_date: Option<String>, // 开始日期 (YYYY-MM-DD)
+    pub end_date: Option<String>, // 结束日期 (YYYY-MM-DD)
+    pub sort_by: Option<String>, // "created_at", "updated_at", "title"
+    pub sort_order: Option<String>, // "ASC", "DESC"
+    pub limit: Option<i32>, // 分页限制
+    pub offset: Option<i32>, // 分页偏移
 }
 
 // 创建笔记
@@ -637,16 +730,42 @@ fn create_note(app: AppHandle, request: CreateNoteRequest) -> Result<Note, Strin
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
     
+    // 获取加密密钥
+    let key = get_encryption_key(&app)?;
+    
+    // 加密内容
+    let encrypted_content = if let Some(ref content) = request.content {
+        if !content.is_empty() {
+            Some(encryption::encrypt_content(content, &key)
+                .map_err(|e| format!("加密内容失败: {}", e))?)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    
+    let encrypted_highlighted = if let Some(ref highlighted) = request.highlighted_text {
+        if !highlighted.is_empty() {
+            Some(encryption::encrypt_content(highlighted, &key)
+                .map_err(|e| format!("加密高亮文本失败: {}", e))?)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    
     conn.execute(
         "INSERT INTO notes (title, content, category_id, book_id, chapter_index, highlighted_text, annotation_type, position_start, position_end) 
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         rusqlite::params![
             request.title,
-            request.content,
+            encrypted_content,
             request.category_id,
             request.book_id,
             request.chapter_index,
-            request.highlighted_text,
+            encrypted_highlighted,
             request.annotation_type,
             request.position_start,
             request.position_end
@@ -665,14 +784,46 @@ fn create_note(app: AppHandle, request: CreateNoteRequest) -> Result<Note, Strin
         }
     }
     
-    get_note_by_id(&conn, note_id)
+    let key = get_encryption_key(&app)?;
+    get_note_by_id_with_decrypt(&conn, note_id, &key)
+}
+
+// 辅助函数：解密笔记内容
+fn decrypt_note_content(note: &mut Note, key: &[u8]) -> Result<(), String> {
+    // 解密content
+    if let Some(ref encrypted_content) = note.content {
+        if !encrypted_content.is_empty() {
+            match encryption::decrypt_content(encrypted_content, key) {
+                Ok(decrypted) => note.content = Some(decrypted),
+                Err(e) => {
+                    // 如果解密失败，可能是未加密的内容，保留原值
+                    // 或者返回错误，这里我们选择保留原值以支持向后兼容
+                    eprintln!("解密内容失败: {}, 可能未加密", e);
+                }
+            }
+        }
+    }
+    
+    // 解密highlighted_text
+    if let Some(ref encrypted_highlighted) = note.highlighted_text {
+        if !encrypted_highlighted.is_empty() {
+            match encryption::decrypt_content(encrypted_highlighted, key) {
+                Ok(decrypted) => note.highlighted_text = Some(decrypted),
+                Err(e) => {
+                    eprintln!("解密高亮文本失败: {}, 可能未加密", e);
+                }
+            }
+        }
+    }
+    
+    Ok(())
 }
 
 // 获取单个笔记
 fn get_note_by_id(conn: &rusqlite::Connection, id: i32) -> Result<Note, String> {
     let mut note = conn.query_row(
         "SELECT n.id, n.title, n.content, n.category_id, n.book_id, n.chapter_index, 
-                n.highlighted_text, n.annotation_type, n.created_at, n.updated_at, c.name as category_name
+                n.highlighted_text, n.annotation_type, n.created_at, n.updated_at, n.deleted_at, c.name as category_name
          FROM notes n
          LEFT JOIN categories c ON n.category_id = c.id
          WHERE n.id = ?1",
@@ -687,10 +838,11 @@ fn get_note_by_id(conn: &rusqlite::Connection, id: i32) -> Result<Note, String> 
                 chapter_index: row.get(5)?,
                 highlighted_text: row.get(6)?,
                 annotation_type: row.get(7)?,
-                category_name: row.get(10)?,
+                category_name: row.get(11)?,
                 tags: vec![],
                 created_at: row.get(8)?,
                 updated_at: row.get(9)?,
+                deleted_at: row.get(10)?,
             })
         },
     ).map_err(|e| format!("获取笔记失败: {}", e))?;
@@ -715,6 +867,13 @@ fn get_note_by_id(conn: &rusqlite::Connection, id: i32) -> Result<Note, String> 
     Ok(note)
 }
 
+// 获取单个笔记（带解密）
+fn get_note_by_id_with_decrypt(conn: &rusqlite::Connection, id: i32, key: &[u8]) -> Result<Note, String> {
+    let mut note = get_note_by_id(conn, id)?;
+    decrypt_note_content(&mut note, key)?;
+    Ok(note)
+}
+
 // 获取所有笔记
 #[tauri::command]
 fn get_notes(app: AppHandle, category_id: Option<i32>, tag_id: Option<i32>) -> Result<Vec<Note>, String> {
@@ -723,10 +882,10 @@ fn get_notes(app: AppHandle, category_id: Option<i32>, tag_id: Option<i32>) -> R
     
     let mut query = String::from(
         "SELECT n.id, n.title, n.content, n.category_id, n.book_id, n.chapter_index, 
-                n.highlighted_text, n.annotation_type, n.created_at, n.updated_at, c.name as category_name
+                n.highlighted_text, n.annotation_type, n.created_at, n.updated_at, n.deleted_at, c.name as category_name
          FROM notes n
          LEFT JOIN categories c ON n.category_id = c.id
-         WHERE 1=1"
+         WHERE n.deleted_at IS NULL"
     );
     
     let mut params_vec: Vec<&dyn rusqlite::ToSql> = vec![];
@@ -759,10 +918,11 @@ fn get_notes(app: AppHandle, category_id: Option<i32>, tag_id: Option<i32>) -> R
             chapter_index: row.get(5)?,
             highlighted_text: row.get(6)?,
             annotation_type: row.get(7)?,
-            category_name: row.get(10)?,
+            category_name: row.get(11)?,
             tags: vec![],
             created_at: row.get(8)?,
             updated_at: row.get(9)?,
+            deleted_at: row.get(10)?,
         })
     }).map_err(|e| e.to_string())?;
     
@@ -799,29 +959,42 @@ fn update_note(app: AppHandle, request: UpdateNoteRequest) -> Result<Note, Strin
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
     
+    // 获取加密密钥
+    let key = get_encryption_key(&app)?;
+    
     let mut updates = Vec::new();
-    let mut params_vec: Vec<&dyn rusqlite::ToSql> = vec![];
+    let mut params: Vec<Box<dyn rusqlite::ToSql + Send + Sync>> = vec![];
     
     if let Some(title) = &request.title {
         updates.push("title = ?");
-        params_vec.push(title);
+        params.push(Box::new(title.clone()));
     }
     if let Some(content) = &request.content {
+        // 加密内容
+        let encrypted_content = if !content.is_empty() {
+            Some(encryption::encrypt_content(content, &key)
+                .map_err(|e| format!("加密内容失败: {}", e))?)
+        } else {
+            None
+        };
         updates.push("content = ?");
-        params_vec.push(content);
+        params.push(Box::new(encrypted_content));
     }
     if let Some(category_id) = &request.category_id {
         updates.push("category_id = ?");
-        params_vec.push(category_id);
+        params.push(Box::new(*category_id));
     }
     
     updates.push("updated_at = CURRENT_TIMESTAMP");
-    params_vec.push(&request.id);
+    params.push(Box::new(request.id));
     
     let update_str = updates.join(", ");
     let query = format!("UPDATE notes SET {} WHERE id = ?", update_str);
     
-    conn.execute(&query, rusqlite::params_from_iter(params_vec.iter()))
+    // 转换为引用数组
+    let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref() as &dyn rusqlite::ToSql).collect();
+    
+    conn.execute(&query, rusqlite::params_from_iter(params_refs.iter()))
         .map_err(|e| format!("更新笔记失败: {}", e))?;
     
     // 更新标签关联
@@ -839,19 +1012,127 @@ fn update_note(app: AppHandle, request: UpdateNoteRequest) -> Result<Note, Strin
         }
     }
     
-    get_note_by_id(&conn, request.id)
+    get_note_by_id_with_decrypt(&conn, request.id, &key)
 }
 
-// 删除笔记
+// 删除笔记（软删除）
 #[tauri::command]
 fn delete_note(app: AppHandle, id: i32) -> Result<(), String> {
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
     
-    conn.execute("DELETE FROM notes WHERE id = ?1", rusqlite::params![id])
-        .map_err(|e| format!("删除笔记失败: {}", e))?;
+    conn.execute(
+        "UPDATE notes SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?1",
+        rusqlite::params![id]
+    ).map_err(|e| format!("删除笔记失败: {}", e))?;
     
     Ok(())
+}
+
+// 获取回收站中的笔记
+#[tauri::command]
+fn get_trash_notes(app: AppHandle) -> Result<Vec<Note>, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    
+    let mut stmt = conn.prepare(
+        "SELECT n.id, n.title, n.content, n.category_id, n.book_id, n.chapter_index, 
+                n.highlighted_text, n.annotation_type, n.created_at, n.updated_at, n.deleted_at, c.name as category_name
+         FROM notes n
+         LEFT JOIN categories c ON n.category_id = c.id
+         WHERE n.deleted_at IS NOT NULL
+         ORDER BY n.deleted_at DESC"
+    ).map_err(|e| e.to_string())?;
+    
+    let note_iter = stmt.query_map([], |row| {
+        Ok(Note {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            content: row.get(2)?,
+            category_id: row.get(3)?,
+            book_id: row.get(4)?,
+            chapter_index: row.get(5)?,
+            highlighted_text: row.get(6)?,
+            annotation_type: row.get(7)?,
+            category_name: row.get(11)?,
+            tags: vec![],
+            created_at: row.get(8)?,
+            updated_at: row.get(9)?,
+            deleted_at: row.get(10)?,
+        })
+    }).map_err(|e| e.to_string())?;
+    
+    let mut notes = Vec::new();
+    for note_result in note_iter {
+        let mut note = note_result.map_err(|e| e.to_string())?;
+        
+        // 获取每个笔记的标签
+        let mut tag_stmt = conn.prepare(
+            "SELECT t.id, t.name, t.color FROM tags t
+             INNER JOIN note_tags nt ON t.id = nt.tag_id
+             WHERE nt.note_id = ?1"
+        ).map_err(|e| e.to_string())?;
+        
+        let tags = tag_stmt.query_map(rusqlite::params![note.id], |row| {
+            Ok(Tag {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                color: row.get(2)?,
+            })
+        }).map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+        
+        note.tags = tags;
+        notes.push(note);
+    }
+    
+    // 解密所有笔记
+    let key = get_encryption_key(&app)?;
+    for note in &mut notes {
+        decrypt_note_content(note, &key)?;
+    }
+    
+    Ok(notes)
+}
+
+// 恢复笔记
+#[tauri::command]
+fn restore_note(app: AppHandle, id: i32) -> Result<(), String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    
+    conn.execute(
+        "UPDATE notes SET deleted_at = NULL WHERE id = ?1",
+        rusqlite::params![id]
+    ).map_err(|e| format!("恢复笔记失败: {}", e))?;
+    
+    Ok(())
+}
+
+// 永久删除笔记
+#[tauri::command]
+fn permanently_delete_note(app: AppHandle, id: i32) -> Result<(), String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    
+    conn.execute("DELETE FROM notes WHERE id = ?1", rusqlite::params![id])
+        .map_err(|e| format!("永久删除笔记失败: {}", e))?;
+    
+    Ok(())
+}
+
+// 清理30天前的回收站笔记
+#[tauri::command]
+fn cleanup_trash(app: AppHandle) -> Result<u32, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    
+    let deleted_count = conn.execute(
+        "DELETE FROM notes WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-30 days')",
+        []
+    ).map_err(|e| format!("清理回收站失败: {}", e))?;
+    
+    Ok(deleted_count as u32)
 }
 
 // 搜索笔记
@@ -864,19 +1145,20 @@ fn search_notes(app: AppHandle, request: SearchNotesRequest) -> Result<Vec<Note>
     
     let mut sql = String::from(
         "SELECT DISTINCT n.id, n.title, n.content, n.category_id, n.book_id, n.chapter_index, 
-                n.highlighted_text, n.annotation_type, n.created_at, n.updated_at, c.name as category_name
+                n.highlighted_text, n.annotation_type, n.created_at, n.updated_at, n.deleted_at, c.name as category_name
          FROM notes n
          LEFT JOIN categories c ON n.category_id = c.id
-         WHERE (n.title LIKE ?1 OR n.content LIKE ?1 OR n.highlighted_text LIKE ?1)"
+         WHERE (n.title LIKE ?1 OR n.content LIKE ?1 OR n.highlighted_text LIKE ?1) AND n.deleted_at IS NULL"
     );
     
     // 将值提取到函数作用域，确保生命周期足够长
     let category_id = request.category_id;
     let tag_id = request.tag_id;
+    let tag_ids = request.tag_ids;
     
     let mut params_vec: Vec<&dyn rusqlite::ToSql> = vec![&query_pattern];
     
-    // 将值提取到 if let 块外部，确保生命周期足够长
+    // 分类筛选
     let cid_value;
     if let Some(cid) = category_id {
         cid_value = cid;
@@ -884,6 +1166,7 @@ fn search_notes(app: AppHandle, request: SearchNotesRequest) -> Result<Vec<Note>
         params_vec.push(&cid_value as &dyn rusqlite::ToSql);
     }
     
+    // 单标签筛选（向后兼容）
     let tid_value;
     if let Some(tid) = tag_id {
         tid_value = tid;
@@ -891,7 +1174,51 @@ fn search_notes(app: AppHandle, request: SearchNotesRequest) -> Result<Vec<Note>
         params_vec.push(&tid_value as &dyn rusqlite::ToSql);
     }
     
-    sql.push_str(" ORDER BY n.created_at DESC");
+    // 多标签筛选
+    let tid_count_value;
+    if let Some(ref tids) = tag_ids {
+        if !tids.is_empty() {
+            let placeholders: Vec<String> = (0..tids.len()).map(|_| "?".to_string()).collect();
+            sql.push_str(&format!(" AND n.id IN (SELECT note_id FROM note_tags WHERE tag_id IN ({}) GROUP BY note_id HAVING COUNT(DISTINCT tag_id) = ?)", placeholders.join(", ")));
+            for tid in tids {
+                params_vec.push(tid as &dyn rusqlite::ToSql);
+            }
+            tid_count_value = tids.len() as i32;
+            params_vec.push(&tid_count_value as &dyn rusqlite::ToSql);
+        }
+    }
+    
+    // 时间范围筛选
+    let start_date_ref = request.start_date.as_ref();
+    let end_date_ref = request.end_date.as_ref();
+    if let Some(start) = start_date_ref {
+        sql.push_str(" AND DATE(n.created_at) >= ?");
+        params_vec.push(start as &dyn rusqlite::ToSql);
+    }
+    if let Some(end) = end_date_ref {
+        sql.push_str(" AND DATE(n.created_at) <= ?");
+        params_vec.push(end as &dyn rusqlite::ToSql);
+    }
+    
+    // 排序
+    let sort_by = request.sort_by.as_deref().unwrap_or("created_at");
+    let sort_order = request.sort_order.as_deref().unwrap_or("DESC");
+    let valid_sort_by = match sort_by {
+        "created_at" => "n.created_at",
+        "updated_at" => "n.updated_at",
+        "title" => "n.title",
+        _ => "n.created_at",
+    };
+    let valid_sort_order = if sort_order == "ASC" { "ASC" } else { "DESC" };
+    sql.push_str(&format!(" ORDER BY {} {}", valid_sort_by, valid_sort_order));
+    
+    // 分页
+    if let Some(limit) = request.limit {
+        sql.push_str(&format!(" LIMIT {}", limit));
+        if let Some(offset) = request.offset {
+            sql.push_str(&format!(" OFFSET {}", offset));
+        }
+    }
     
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let note_iter = stmt.query_map(rusqlite::params_from_iter(params_vec.iter()), |row| {
@@ -904,10 +1231,11 @@ fn search_notes(app: AppHandle, request: SearchNotesRequest) -> Result<Vec<Note>
             chapter_index: row.get(5)?,
             highlighted_text: row.get(6)?,
             annotation_type: row.get(7)?,
-            category_name: row.get(10)?,
+            category_name: row.get(11)?,
             tags: vec![],
             created_at: row.get(8)?,
             updated_at: row.get(9)?,
+            deleted_at: row.get(10)?,
         })
     }).map_err(|e| e.to_string())?;
     
@@ -932,6 +1260,12 @@ fn search_notes(app: AppHandle, request: SearchNotesRequest) -> Result<Vec<Note>
         
         note.tags = tags;
         notes.push(note);
+    }
+    
+    // 解密所有笔记
+    let key = get_encryption_key(&app)?;
+    for note in &mut notes {
+        decrypt_note_content(note, &key)?;
     }
     
     Ok(notes)
@@ -1020,7 +1354,257 @@ fn create_tag(app: AppHandle, name: String, color: Option<String>) -> Result<Tag
 fn get_note(app: AppHandle, id: i32) -> Result<Note, String> {
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
-    get_note_by_id(&conn, id)
+    let key = get_encryption_key(&app)?;
+    get_note_by_id_with_decrypt(&conn, id, &key)
+}
+
+// 记录笔记操作
+#[tauri::command]
+fn record_note_action(app: AppHandle, note_id: i32, action_type: String, duration_seconds: Option<i32>) -> Result<(), String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    
+    conn.execute(
+        "INSERT INTO note_statistics (note_id, action_type, duration_seconds) VALUES (?1, ?2, ?3)",
+        rusqlite::params![note_id, action_type, duration_seconds],
+    ).map_err(|e| format!("记录笔记操作失败: {}", e))?;
+    
+    Ok(())
+}
+
+// 统计信息结构
+#[derive(Serialize, Debug)]
+pub struct NoteStatistics {
+    pub total_notes: i32,
+    pub today_created: i32,
+    pub week_created: i32,
+    pub avg_daily_created: f64,
+    pub total_duration_seconds: i64,
+    pub avg_session_duration_seconds: f64,
+}
+
+// 获取笔记统计信息
+#[tauri::command]
+fn get_note_statistics(app: AppHandle, start_date: Option<String>, end_date: Option<String>) -> Result<NoteStatistics, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    
+    let mut query = String::from(
+        "SELECT 
+            COUNT(*) as total_notes,
+            SUM(CASE WHEN DATE(created_at) = DATE('now') THEN 1 ELSE 0 END) as today_created,
+            SUM(CASE WHEN DATE(created_at) >= DATE('now', '-7 days') THEN 1 ELSE 0 END) as week_created
+         FROM notes WHERE deleted_at IS NULL"
+    );
+    
+    let mut params_vec: Vec<&dyn rusqlite::ToSql> = vec![];
+    
+    if let Some(ref start) = start_date {
+        query.push_str(" AND DATE(created_at) >= ?");
+        params_vec.push(start as &dyn rusqlite::ToSql);
+    }
+    if let Some(ref end) = end_date {
+        query.push_str(" AND DATE(created_at) <= ?");
+        params_vec.push(end as &dyn rusqlite::ToSql);
+    }
+    
+    let stats = conn.query_row(
+        &query,
+        rusqlite::params_from_iter(params_vec.iter()),
+        |row| {
+            Ok(NoteStatistics {
+                total_notes: row.get(0)?,
+                today_created: row.get(1)?,
+                week_created: row.get(2)?,
+                avg_daily_created: 0.0, // 将在下面计算
+                total_duration_seconds: 0, // 将在下面计算
+                avg_session_duration_seconds: 0.0, // 将在下面计算
+            })
+        },
+    ).map_err(|e| format!("获取统计信息失败: {}", e))?;
+    
+    // 计算平均每日创建数
+    let days = if let (Some(start), Some(end)) = (&start_date, &end_date) {
+        // 使用SQLite计算日期差
+        let days_diff: f64 = conn.query_row(
+            "SELECT CAST((julianday(?) - julianday(?)) AS REAL)",
+            rusqlite::params![end, start],
+            |row| row.get(0),
+        ).unwrap_or(30.0);
+        if days_diff > 0.0 { days_diff } else { 1.0 }
+    } else {
+        // 默认使用30天
+        30.0
+    };
+    
+    let avg_daily = stats.total_notes as f64 / days;
+    
+    // 获取使用时长统计
+    let mut duration_query = String::from(
+        "SELECT 
+            SUM(duration_seconds) as total_duration,
+            AVG(duration_seconds) as avg_duration
+         FROM note_statistics WHERE 1=1"
+    );
+    
+    let mut duration_params: Vec<&dyn rusqlite::ToSql> = vec![];
+    if let Some(start) = &start_date {
+        duration_query.push_str(" AND DATE(action_time) >= ?");
+        duration_params.push(start as &dyn rusqlite::ToSql);
+    }
+    if let Some(end) = &end_date {
+        duration_query.push_str(" AND DATE(action_time) <= ?");
+        duration_params.push(end as &dyn rusqlite::ToSql);
+    }
+    
+    let (total_duration, avg_duration) = conn.query_row(
+        &duration_query,
+        rusqlite::params_from_iter(duration_params.iter()),
+        |row| {
+            Ok((
+                row.get::<_, Option<i64>>(0)?.unwrap_or(0),
+                row.get::<_, Option<f64>>(1)?.unwrap_or(0.0),
+            ))
+        },
+    ).unwrap_or((0, 0.0));
+    
+    Ok(NoteStatistics {
+        total_notes: stats.total_notes,
+        today_created: stats.today_created,
+        week_created: stats.week_created,
+        avg_daily_created: avg_daily,
+        total_duration_seconds: total_duration,
+        avg_session_duration_seconds: avg_duration,
+    })
+}
+
+// 分类统计
+#[derive(Serialize, Debug)]
+pub struct CategoryStatistics {
+    pub category_id: Option<i32>,
+    pub category_name: Option<String>,
+    pub note_count: i32,
+}
+
+// 获取分类统计
+#[tauri::command]
+fn get_category_statistics(app: AppHandle) -> Result<Vec<CategoryStatistics>, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    
+    let mut stmt = conn.prepare(
+        "SELECT c.id, c.name, COUNT(n.id) as note_count
+         FROM categories c
+         LEFT JOIN notes n ON c.id = n.category_id AND n.deleted_at IS NULL
+         GROUP BY c.id, c.name
+         ORDER BY note_count DESC"
+    ).map_err(|e| e.to_string())?;
+    
+    let stats = stmt.query_map([], |row| {
+        Ok(CategoryStatistics {
+            category_id: row.get(0)?,
+            category_name: row.get(1)?,
+            note_count: row.get(2)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    
+    Ok(stats)
+}
+
+// 标签统计
+#[derive(Serialize, Debug)]
+pub struct TagStatistics {
+    pub tag_id: i32,
+    pub tag_name: String,
+    pub note_count: i32,
+}
+
+// 获取标签统计
+#[tauri::command]
+fn get_tag_statistics(app: AppHandle) -> Result<Vec<TagStatistics>, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    
+    let mut stmt = conn.prepare(
+        "SELECT t.id, t.name, COUNT(DISTINCT nt.note_id) as note_count
+         FROM tags t
+         LEFT JOIN note_tags nt ON t.id = nt.tag_id
+         LEFT JOIN notes n ON nt.note_id = n.id AND n.deleted_at IS NULL
+         GROUP BY t.id, t.name
+         ORDER BY note_count DESC"
+    ).map_err(|e| e.to_string())?;
+    
+    let stats = stmt.query_map([], |row| {
+        Ok(TagStatistics {
+            tag_id: row.get(0)?,
+            tag_name: row.get(1)?,
+            note_count: row.get(2)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    
+    Ok(stats)
+}
+
+// 启动自动清理任务
+fn start_cleanup_task(app: AppHandle) {
+    // #region agent log
+    let log_path = std::path::PathBuf::from("/home/project/deep-reader/.cursor/debug.log");
+    let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+        use std::io::Write;
+        let has_runtime = tokio::runtime::Handle::try_current().is_ok();
+        writeln!(f, r#"{{"timestamp":{},"location":"lib.rs:1551","message":"start_cleanup_task called","data":{{"has_runtime":{}}},"sessionId":"debug-session","runId":"initial","hypothesisId":"A"}}"#, 
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), has_runtime)
+    });
+    // #endregion agent log
+    
+    std::thread::spawn(move || {
+        // #region agent log
+        let log_path = std::path::PathBuf::from("/home/project/deep-reader/.cursor/debug.log");
+        let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+            use std::io::Write;
+            writeln!(f, r#"{{"timestamp":{},"location":"lib.rs:1569","message":"cleanup thread started, creating runtime","sessionId":"debug-session","runId":"initial","hypothesisId":"C"}}"#, 
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
+        });
+        // #endregion agent log
+        
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+        rt.block_on(async move {
+            // #region agent log
+            let log_path = std::path::PathBuf::from("/home/project/deep-reader/.cursor/debug.log");
+            let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                use std::io::Write;
+                writeln!(f, r#"{{"timestamp":{},"location":"lib.rs:1586","message":"runtime created, starting cleanup loop","sessionId":"debug-session","runId":"initial","hypothesisId":"B"}}"#, 
+                    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
+            });
+            // #endregion agent log
+            
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(86400)); // 24小时
+            interval.tick().await; // 跳过第一次立即执行
+            
+            loop {
+                interval.tick().await;
+                let db_path = get_db_path(&app);
+                if let Ok(conn) = db::init_db(&db_path) {
+                    let _ = conn.execute(
+                        "DELETE FROM notes WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-30 days')",
+                        []
+                    );
+                    println!("自动清理回收站完成");
+                    
+                    // #region agent log
+                    let log_path = std::path::PathBuf::from("/home/project/deep-reader/.cursor/debug.log");
+                    let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
+                        use std::io::Write;
+                        writeln!(f, r#"{{"timestamp":{},"location":"lib.rs:1608","message":"cleanup task executed","sessionId":"debug-session","runId":"initial","hypothesisId":"D"}}"#, 
+                            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
+                    });
+                    // #endregion agent log
+                }
+            }
+        });
+    });
 }
 
 // 核心入口配置
@@ -1032,6 +1616,11 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        .setup(|app| {
+            // 启动自动清理任务
+            start_cleanup_task(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             upload_epub_file,
             get_books,
@@ -1042,11 +1631,23 @@ pub fn run() {
             get_notes,
             update_note,
             delete_note,
+            get_trash_notes,
+            restore_note,
+            permanently_delete_note,
+            cleanup_trash,
             search_notes,
             get_categories,
             get_tags,
             create_tag,
             get_note,
+            record_note_action,
+            get_note_statistics,
+            get_category_statistics,
+            get_tag_statistics,
+            summarize_note,
+            generate_questions,
+            expand_note,
+            get_ai_suggestion,
             get_ai_configs,
             update_ai_config,
             call_ai_assistant,

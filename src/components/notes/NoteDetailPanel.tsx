@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Note, Category, Tag, UpdateNoteRequest } from "../../types/notes";
-import { Edit2, Trash2, Save, X, ChevronDown, ChevronUp, Settings, Sparkles, Loader2 } from "lucide-react";
+import { Edit2, Trash2, Save, X, ChevronDown, ChevronUp, Settings, Sparkles, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import AIConfigDialog from "../ai/AIConfigDialog";
 
 interface NoteDetailPanelProps {
@@ -31,6 +31,8 @@ export default function NoteDetailPanel({
   const [aiResponse, setAiResponse] = useState<string>("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAction, setAiAction] = useState<string>("");
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (note) {
@@ -39,17 +41,14 @@ export default function NoteDetailPanel({
       setSelectedCategoryId(note.category_id);
       setSelectedTagIds(note.tags.map((t) => t.id));
       setIsEditing(false);
+      setSaveStatus('idle');
     }
   }, [note]);
 
-  const handleSave = async () => {
-    if (!note) return;
+  const handleAutoSave = useCallback(async () => {
+    if (!note || !editedTitle.trim()) return;
 
-    if (!editedTitle.trim()) {
-        alert("标题不能为空");
-        return;
-      }
-
+    setSaveStatus('saving');
     try {
       const request: UpdateNoteRequest = {
         id: note.id,
@@ -60,10 +59,74 @@ export default function NoteDetailPanel({
       };
 
       await invoke("update_note", { request });
+      setSaveStatus('saved');
+      onUpdate();
+      
+      // 3秒后恢复为idle状态
+      setTimeout(() => {
+        setSaveStatus('idle');
+      }, 3000);
+    } catch (error) {
+      console.error("自动保存失败:", error);
+      setSaveStatus('error');
+    }
+  }, [note, editedTitle, editedContent, selectedCategoryId, selectedTagIds, onUpdate]);
+
+  // 自动保存功能
+  useEffect(() => {
+    if (!isEditing || !note) return;
+
+    // 检查是否有更改
+    const hasChanges = 
+      editedTitle !== note.title ||
+      editedContent !== (note.content || "") ||
+      selectedCategoryId !== note.category_id ||
+      JSON.stringify([...selectedTagIds].sort()) !== JSON.stringify(note.tags.map(t => t.id).sort());
+
+    if (!hasChanges) {
+      setSaveStatus('idle');
+      return;
+    }
+
+    // 设置新的定时器，2秒后自动保存
+    const timer = setTimeout(() => {
+      handleAutoSave();
+    }, 2000);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [editedTitle, editedContent, selectedCategoryId, selectedTagIds, isEditing, note, handleAutoSave]);
+
+  const handleSave = async () => {
+    if (!note) return;
+
+    if (!editedTitle.trim()) {
+        alert("标题不能为空");
+        return;
+      }
+
+    setSaveStatus('saving');
+    try {
+      const request: UpdateNoteRequest = {
+        id: note.id,
+        title: editedTitle,
+        content: editedContent,
+        category_id: selectedCategoryId || undefined,
+        tag_ids: selectedTagIds,
+      };
+
+      await invoke("update_note", { request });
+      setSaveStatus('saved');
       setIsEditing(false);
       onUpdate();
+      
+      setTimeout(() => {
+        setSaveStatus('idle');
+      }, 3000);
     } catch (error) {
       console.error("更新笔记失败:", error);
+      setSaveStatus('error');
       alert("更新笔记失败");
     }
   };
@@ -89,20 +152,43 @@ export default function NoteDetailPanel({
     setAiResponse("");
 
     try {
-      const response = await invoke<string>("call_ai_assistant", {
-        request: {
-          note_content: note.content || "",
-          note_title: note.title,
-          highlighted_text: note.highlighted_text,
-          action: action,
-        },
-      });
+      let response: string;
+      switch (action) {
+        case "summarize":
+          response = await invoke<string>("summarize_note", { noteId: note.id });
+          break;
+        case "questions":
+          response = await invoke<string>("generate_questions", { noteId: note.id });
+          break;
+        case "suggestions":
+          response = await invoke<string>("get_ai_suggestion", { noteId: note.id });
+          break;
+        case "expand":
+          response = await invoke<string>("expand_note", { noteId: note.id });
+          break;
+        default:
+          response = await invoke<string>("call_ai_assistant", {
+            request: {
+              note_content: note.content || "",
+              note_title: note.title,
+              highlighted_text: note.highlighted_text,
+              action: action,
+            },
+          });
+      }
       setAiResponse(response);
     } catch (error) {
       console.error("AI 调用失败:", error);
       setAiResponse(`错误: ${error}`);
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const handleInsertAIResponse = () => {
+    if (aiResponse && note) {
+      setEditedContent(editedContent + "\n\n" + aiResponse);
+      setIsEditing(true);
     }
   };
 
@@ -118,7 +204,31 @@ export default function NoteDetailPanel({
     <div className="h-full flex flex-col bg-white border-l border-gray-200">
       {/* 头部操作栏 */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">笔记详情</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-gray-900">笔记详情</h3>
+          {isEditing && (
+            <div className="flex items-center gap-2 text-xs">
+              {saveStatus === 'saving' && (
+                <span className="flex items-center gap-1 text-blue-600">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  保存中...
+                </span>
+              )}
+              {saveStatus === 'saved' && (
+                <span className="flex items-center gap-1 text-green-600">
+                  <CheckCircle2 className="w-3 h-3" />
+                  已保存
+                </span>
+              )}
+              {saveStatus === 'error' && (
+                <span className="flex items-center gap-1 text-red-600">
+                  <AlertCircle className="w-3 h-3" />
+                  保存失败
+                </span>
+              )}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {isEditing ? (
             <>
@@ -376,11 +486,19 @@ export default function NoteDetailPanel({
 
               {aiResponse && !aiLoading && (
                 <div className="p-3 bg-white dark:bg-neutral-800 rounded-lg border border-gray-200 dark:border-neutral-700">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                    {aiAction === "summarize" && "总结要点"}
-                    {aiAction === "questions" && "生成问题"}
-                    {aiAction === "suggestions" && "学习建议"}
-                    {aiAction === "expand" && "扩展内容"}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {aiAction === "summarize" && "总结要点"}
+                      {aiAction === "questions" && "生成问题"}
+                      {aiAction === "suggestions" && "学习建议"}
+                      {aiAction === "expand" && "扩展内容"}
+                    </div>
+                    <button
+                      onClick={handleInsertAIResponse}
+                      className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                    >
+                      插入到笔记
+                    </button>
                   </div>
                   <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                     {aiResponse}

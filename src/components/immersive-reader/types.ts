@@ -14,6 +14,6 @@ export interface Book {
   chapters: Chapter[];
 }
 
-export type ViewMode = 'library' | 'reading';
+export type ViewMode = 'library' | 'reading' | 'analytics';
 export type ThemeMode = 'light' | 'dark';
 

@@ -65,6 +65,9 @@ pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
     // 尝试添加 annotation_type 字段（如果表已存在但没有该字段）
     let _ = conn.execute("ALTER TABLE notes ADD COLUMN annotation_type TEXT DEFAULT 'highlight'", []);
     
+    // 尝试添加 deleted_at 字段（如果表已存在但没有该字段）
+    let _ = conn.execute("ALTER TABLE notes ADD COLUMN deleted_at DATETIME", []);
+    
     // 笔记-标签关联表
     conn.execute(
         "CREATE TABLE IF NOT EXISTS note_tags (
@@ -88,6 +91,10 @@ pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
     )?;
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_notes_deleted_at ON notes(deleted_at)",
         [],
     )?;
     
@@ -128,5 +135,96 @@ pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
         [],
     )?;
     
+    // 笔记统计表
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS note_statistics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            note_id INTEGER NOT NULL,
+            action_type TEXT NOT NULL,
+            action_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            duration_seconds INTEGER,
+            FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+    
+    // 创建统计表索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_statistics_note_id ON note_statistics(note_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_statistics_action_time ON note_statistics(action_time)",
+        [],
+    )?;
+    
+    // 创建统计视图
+    conn.execute(
+        "CREATE VIEW IF NOT EXISTS note_analytics AS
+         SELECT 
+             DATE(action_time) as date,
+             action_type,
+             COUNT(*) as action_count,
+             AVG(duration_seconds) as avg_duration
+         FROM note_statistics
+         GROUP BY DATE(action_time), action_type",
+        [],
+    )?;
+    
     Ok(conn)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn create_test_db() -> (TempDir, std::path::PathBuf) {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        (temp_dir, db_path)
+    }
+
+    #[test]
+    fn test_init_db() {
+        let (_temp_dir, db_path) = create_test_db();
+        let conn = init_db(&db_path).unwrap();
+        
+        // 检查表是否存在
+        let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='notes'").unwrap();
+        let table_exists: bool = stmt.query_row([], |row| {
+            Ok(row.get::<_, Option<String>>(0)?.is_some())
+        }).unwrap();
+        
+        assert!(table_exists);
+    }
+
+    #[test]
+    fn test_deleted_at_field() {
+        let (_temp_dir, db_path) = create_test_db();
+        let conn = init_db(&db_path).unwrap();
+        
+        // 检查deleted_at字段是否存在
+        let mut stmt = conn.prepare("PRAGMA table_info(notes)").unwrap();
+        let has_deleted_at = stmt.query_map([], |row| {
+            let name: String = row.get(1)?;
+            Ok(name == "deleted_at")
+        }).unwrap().any(|x| x.unwrap());
+        
+        assert!(has_deleted_at);
+    }
+
+    #[test]
+    fn test_note_statistics_table() {
+        let (_temp_dir, db_path) = create_test_db();
+        let conn = init_db(&db_path).unwrap();
+        
+        // 检查note_statistics表是否存在
+        let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='note_statistics'").unwrap();
+        let table_exists: bool = stmt.query_row([], |row| {
+            Ok(row.get::<_, Option<String>>(0)?.is_some())
+        }).unwrap();
+        
+        assert!(table_exists);
+    }
 }

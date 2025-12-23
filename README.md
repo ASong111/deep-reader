@@ -21,6 +21,11 @@ npm run build:prod
 npm run build:win
 ```
 
+##技术栈
+tauri + sqllite
+前端 react + tailwindcss
+后端 rust
+
 ##功能
 - 自动标注与笔记生成：
 在阅读区选择文本后，点击工具栏的高亮或下划线按钮，系统会自动在数据库中创建一条关联该文本的笔记。

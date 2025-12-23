@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BookOpen, ArrowLeft, Plus } from 'lucide-react';
+import { BookOpen, ArrowLeft, Plus, BarChart3 } from 'lucide-react';
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Book, ViewMode, ThemeMode } from './types';
@@ -10,6 +10,8 @@ import ReaderContent from './ReaderContent';
 import NoteSidebar from '../notes/NoteSidebar';
 import NoteDetailPanel from '../notes/NoteDetailPanel';
 import CreateNoteDialog from '../notes/CreateNoteDialog';
+import AnalyticsView from '../notes/AnalyticsView';
+import { ToastContainer, useToastManager } from '../common/Toast';
 
 // 后端返回的书籍类型
 interface BackendBook {
@@ -26,6 +28,7 @@ interface BackendChapterInfo {
 }
 
 const ImmersiveReader = () => {
+  const { toasts, removeToast } = useToastManager();
   const [currentView, setCurrentView] = useState<ViewMode>('library');
   const [books, setBooks] = useState<Book[]>([]);
   const [activeBook, setActiveBook] = useState<Book | null>(null);
@@ -338,47 +341,108 @@ const ImmersiveReader = () => {
     setNotesRefreshKey(prev => prev + 1);
   }, [selectedNote]);
 
+  // Analytics View
+  if (currentView === 'analytics') {
+    return (
+      <>
+        <div className="flex flex-col h-screen bg-neutral-900">
+          {/* Header */}
+          <header className="h-16 bg-neutral-800 border-b border-neutral-700 flex items-center justify-between px-8 shadow-lg">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <BarChart3 className="w-8 h-8 text-blue-400" />
+                <h1 className="text-2xl font-bold text-white">数据分析</h1>
+              </div>
+              <nav className="flex items-center gap-4">
+                <button
+                  onClick={() => setCurrentView('library')}
+                  className="px-4 py-2 text-neutral-300 hover:text-white hover:bg-neutral-700 rounded-lg transition-colors font-medium flex items-center gap-2"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  图书
+                </button>
+                <button
+                  onClick={() => setCurrentView('analytics')}
+                  className="px-4 py-2 text-white bg-neutral-700 hover:bg-neutral-600 rounded-lg transition-colors font-medium flex items-center gap-2"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  分析
+                </button>
+              </nav>
+            </div>
+          </header>
+
+          {/* Analytics Content */}
+          <main className="flex-1 overflow-hidden">
+            <AnalyticsView />
+          </main>
+        </div>
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </>
+    );
+  }
+
   // Library View
   if (currentView === 'library') {
     return (
-      <div className="flex flex-col h-screen bg-neutral-900">
-        {/* Header */}
-        <header className="h-16 bg-neutral-800 border-b border-neutral-700 flex items-center justify-between px-8 shadow-lg">
-          <div className="flex items-center gap-3">
-            <BookOpen className="w-8 h-8 text-blue-400" />
-            <h1 className="text-2xl font-bold text-white">图书馆</h1>
-          </div>
-          <button
-            onClick={handleImportBook}
-            disabled={loading}
-            className={`flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-md ${
-              loading ? 'opacity-50 cursor-wait' : ''
-            }`}
-          >
-            <Plus className="w-5 h-5" />
-            {loading ? '导入中...' : '导入图书'}
-          </button>
-        </header>
+      <>
+        <div className="flex flex-col h-screen bg-neutral-900">
+          {/* Header */}
+          <header className="h-16 bg-neutral-800 border-b border-neutral-700 flex items-center justify-between px-8 shadow-lg">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <BookOpen className="w-8 h-8 text-blue-400" />
+                <h1 className="text-2xl font-bold text-white">图书馆</h1>
+              </div>
+              <nav className="flex items-center gap-4">
+                <button
+                  onClick={() => setCurrentView('library')}
+                  className="px-4 py-2 text-white bg-neutral-700 hover:bg-neutral-600 rounded-lg transition-colors font-medium"
+                >
+                  图书
+                </button>
+                <button
+                  onClick={() => setCurrentView('analytics')}
+                  className="px-4 py-2 text-neutral-300 hover:text-white hover:bg-neutral-700 rounded-lg transition-colors font-medium flex items-center gap-2"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  分析
+                </button>
+              </nav>
+            </div>
+            <button
+              onClick={handleImportBook}
+              disabled={loading}
+              className={`flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-md ${
+                loading ? 'opacity-50 cursor-wait' : ''
+              }`}
+            >
+              <Plus className="w-5 h-5" />
+              {loading ? '导入中...' : '导入图书'}
+            </button>
+          </header>
 
-        {/* Book Grid */}
-        <main className="flex-1 overflow-y-auto p-8">
-          {books.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-neutral-400">
-              <p>暂无书籍，请点击上方按钮导入书籍</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
-              {books.map((book) => (
-                <BookCard 
-                  key={book.id} 
-                  book={book} 
-                  onClick={handleBookClick} 
-                />
-              ))}
-            </div>
-          )}
-        </main>
-      </div>
+          {/* Book Grid */}
+          <main className="flex-1 overflow-y-auto p-8">
+            {books.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-neutral-400">
+                <p>暂无书籍，请点击上方按钮导入书籍</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
+                {books.map((book) => (
+                  <BookCard 
+                    key={book.id} 
+                    book={book} 
+                    onClick={handleBookClick} 
+                  />
+                ))}
+              </div>
+            )}
+          </main>
+        </div>
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </>
     );
   }
 
@@ -491,11 +555,19 @@ const ImmersiveReader = () => {
           bookId={activeBook.id}
           chapterIndex={safeChapterIndex}
         />
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
       </div>
     );
   }
 
-  return null;
+  return (
+    <>
+      <div className="flex items-center justify-center h-screen text-neutral-400">
+        <p>未知视图</p>
+      </div>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+    </>
+  );
 };
 
 export default ImmersiveReader;
