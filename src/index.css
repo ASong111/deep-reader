@@ -32,3 +32,40 @@ html, body {
       transition-duration: 0.01ms !important;
     }
   }
+
+/* 文本选择高亮样式 - 确保在所有情况下都可见 */
+::selection {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+  color: inherit !important;
+}
+
+::-moz-selection {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+  color: inherit !important;
+}
+
+/* 针对 prose 类的选择样式 */
+.prose ::selection,
+.prose *::selection {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+  color: inherit !important;
+}
+
+.prose ::-moz-selection,
+.prose *::-moz-selection {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+  color: inherit !important;
+}
+
+/* 针对内容区域的选择样式 */
+.reader-content ::selection,
+.reader-content *::selection {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+  color: inherit !important;
+}
+
+.reader-content ::-moz-selection,
+.reader-content *::-moz-selection {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+  color: inherit !important;
+}

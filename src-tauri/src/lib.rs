@@ -926,9 +926,15 @@ fn get_notes(app: AppHandle, category_id: Option<i32>, tag_id: Option<i32>) -> R
         })
     }).map_err(|e| e.to_string())?;
     
+    // 获取加密密钥
+    let key = get_encryption_key(&app)?;
+    
     let mut notes = Vec::new();
     for note_result in note_iter {
         let mut note = note_result.map_err(|e| e.to_string())?;
+        
+        // 解密笔记内容
+        decrypt_note_content(&mut note, &key)?;
         
         // 获取每个笔记的标签
         let mut tag_stmt = conn.prepare(

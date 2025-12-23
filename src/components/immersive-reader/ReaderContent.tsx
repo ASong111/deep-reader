@@ -16,6 +16,35 @@ interface ReaderContentProps {
   onNoteClick?: (noteId: number) => void;
 }
 
+// 独立的content组件，使用React.memo防止重新渲染导致DOM节点替换
+const MemoizedContent = memo<{
+  htmlContent: string;
+  isDark: boolean;
+  contentRef: React.RefObject<HTMLDivElement | null>;
+  onNoteClick?: (noteId: number) => void;
+}>(({ htmlContent, isDark, contentRef, onNoteClick }) => {
+  return (
+    <div
+      ref={contentRef}
+      className={`leading-relaxed reader-content ${
+        isDark ? 'text-neutral-300' : 'text-neutral-700'
+      }`}
+      dangerouslySetInnerHTML={{ __html: htmlContent }}
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        const noteId = target.getAttribute('data-note-id');
+        if (noteId && onNoteClick) {
+          onNoteClick(parseInt(noteId));
+        }
+      }}
+    />
+  );
+}, (prevProps, nextProps) => {
+  // 只有htmlContent或isDark变化时才重新渲染，保持DOM节点稳定
+  return prevProps.htmlContent === nextProps.htmlContent && 
+         prevProps.isDark === nextProps.isDark;
+});
+
 const ReaderContent = memo(({ 
   chapter, 
   theme, 
@@ -29,9 +58,62 @@ const ReaderContent = memo(({
   const contentRef = useRef<HTMLDivElement>(null);
   const [selectedText, setSelectedText] = useState<string>("");
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null);
+  const selectionMonitorRef = useRef<number | null>(null);
+  const savedRangeRef = useRef<Range | null>(null);
+  
+  // 在组件挂载时立即注入CSS选择样式，确保在任何选择发生前样式就存在
+  useEffect(() => {
+    
+    let styleEl = document.getElementById('reader-selection-style');    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'reader-selection-style';
+      document.head.appendChild(styleEl);
+    }
+    const bgColor = isDark ? 'rgba(59, 130, 246, 0.5)' : 'rgba(59, 130, 246, 0.3)';
+    const textColor = isDark ? '#ffffff' : 'inherit';
+    styleEl.textContent = `
+      *::selection {
+        background-color: ${bgColor} !important;
+        color: ${textColor} !important;
+      }
+      *::-moz-selection {
+        background-color: ${bgColor} !important;
+        color: ${textColor} !important;
+      }
+      .prose ::selection,
+      .prose *::selection {
+        background-color: ${bgColor} !important;
+        color: ${textColor} !important;
+      }
+      .prose ::-moz-selection,
+      .prose *::-moz-selection {
+        background-color: ${bgColor} !important;
+        color: ${textColor} !important;
+      }
+      .reader-content ::selection,
+      .reader-content *::selection {
+        background-color: ${bgColor} !important;
+        color: ${textColor} !important;
+      }
+      .reader-content ::-moz-selection,
+      .reader-content *::-moz-selection {
+        background-color: ${bgColor} !important;
+        color: ${textColor} !important;
+      }
+    `;
+    
+    
+  }, [isDark]); // 当主题变化时重新注入CSS
   
   // 清除选择
   const handleClearSelection = useCallback(() => {
+    
+    // 停止selection监控
+    if (selectionMonitorRef.current) {
+      cancelAnimationFrame(selectionMonitorRef.current);
+      selectionMonitorRef.current = null;
+    }
+    
     setSelectedText("");
     setSelectionPosition(null);
     if (window.getSelection) {
@@ -42,13 +124,16 @@ const ReaderContent = memo(({
   // 使用 useMemo 处理标注渲染
   const renderedContent = useMemo(() => {
     let content = DOMPurify.sanitize(chapter.content);
-    if (!notes || notes.length === 0) return content;
+    if (!notes || notes.length === 0) {
+      return content;
+    }
 
     // 按文本长度降序排序，防止短匹配破坏长匹配的 HTML 结构
     const sortedNotes = [...notes].sort((a, b) => 
       (b.highlighted_text?.length || 0) - (a.highlighted_text?.length || 0)
     );
 
+    let replacedCount = 0;
     sortedNotes.forEach(note => {
       if (!note.highlighted_text) return;
       
@@ -64,8 +149,11 @@ const ReaderContent = memo(({
       
       // 匹配不在标签属性中的文本（防止破坏 HTML 标签）
       const regex = new RegExp(`(?![^<]*>)(${escapedText})`, 'g');
-      
+      const beforeReplace = content;
       content = content.replace(regex, `<span class="${className}" data-note-id="${note.id}" title="查看笔记">$1</span>`);
+      if (content !== beforeReplace) {
+        replacedCount++;
+      }
     });
 
     return content;
@@ -73,7 +161,11 @@ const ReaderContent = memo(({
 
   // 处理文本选择
   useEffect(() => {
-    const handleMouseUp = () => {
+    let selectionTimeout: number | null = null;
+    let lastMouseUpTime = 0;
+
+    // 处理文本选择完成事件
+    const handleSelection = () => {
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0) {
         setSelectedText("");
@@ -83,48 +175,229 @@ const ReaderContent = memo(({
 
       const text = selection.toString().trim();
       if (text.length === 0) {
-        setSelectedText("");
-        setSelectionPosition(null);
+        // 如果 mouseup 刚刚发生（100ms内），不清除选择，因为选择可能还在进行中
+        if (Date.now() - lastMouseUpTime > 100) {
+          setSelectedText("");
+          setSelectionPosition(null);
+        }
         return;
       }
 
       // 检查选择是否在内容区域内
-      const range = selection.getRangeAt(0);
-      if (!contentRef.current?.contains(range.commonAncestorContainer)) {
+      const range = selection.getRangeAt(0);      if (!contentRef.current?.contains(range.commonAncestorContainer)) {
         setSelectedText("");
         setSelectionPosition(null);
         return;
       }
 
+      // 在更新状态前保存当前range
+      const rangeToRestore = range.cloneRange();
+      
       setSelectedText(text);
 
-    // 获取选择文本的位置
+      // 获取选择文本的位置
       const rect = range.getBoundingClientRect();
       
       setSelectionPosition({
         x: rect.left + rect.width / 2,
         y: rect.top - 10,
       });
+      
+      // React更新后，延迟恢复selection并持续监控
+      setTimeout(() => {
+        const sel = window.getSelection();
+        if (sel && rangeToRestore) {
+          try {
+            sel.removeAllRanges();
+            sel.addRange(rangeToRestore);            // 启动长期RAF监控以保持selection
+            savedRangeRef.current = rangeToRestore.cloneRange();
+            const startTime = Date.now();
+            let monitorFrameCount = 0;
+            
+            const longTermMonitor = () => {
+              monitorFrameCount++;
+              const currentSel = window.getSelection();
+              const elapsed = Date.now() - startTime;
+              const currentType = currentSel?.type || 'none';
+              
+              // 每50帧或检测到问题时记录日志
+              if (monitorFrameCount % 50 === 1 || currentType === 'Caret' || currentType === 'None') {
+              }
+              
+              // 监控10秒
+              if (elapsed > 10000) {
+                selectionMonitorRef.current = null;
+                return;
+              }
+              
+              // 如果selection变成Caret，恢复它
+              if (currentSel && savedRangeRef.current && currentSel.type === 'Caret') {
+                try {
+                  currentSel.removeAllRanges();
+                  currentSel.addRange(savedRangeRef.current.cloneRange());                } catch (_err) {
+                }
+              }
+              
+              selectionMonitorRef.current = requestAnimationFrame(longTermMonitor);
+            };
+            
+            // 取消之前的监控
+            if (selectionMonitorRef.current) {
+              cancelAnimationFrame(selectionMonitorRef.current);
+            }
+            selectionMonitorRef.current = requestAnimationFrame(longTermMonitor);
+          } catch (_err) {
+          }
+        }
+      }, 100);
+      
+      const isCollapsed = range.collapsed;      // CSS样式已在组件挂载时注入，这里不再重复注入
+      // 只需确保选择范围保持活动状态
+      if (isCollapsed) {
+        return;
+      }
+      
+      
+    };
+
+    // 处理鼠标抬起事件 - 延迟检查选择，确保浏览器完成选择
+    const handleMouseUp = (_e: MouseEvent) => {
+      lastMouseUpTime = Date.now();
+      
+      // 立即保存选择范围到ref中，避免useEffect重新运行时丢失
+      const immediateSelection = window.getSelection();
+      const immediateText = immediateSelection?.toString() || '';
+      if (immediateSelection && immediateSelection.rangeCount > 0) {
+        savedRangeRef.current = immediateSelection.getRangeAt(0).cloneRange();
+        
+        // 立即验证cloneRange是否成功        // 启动持续监控，防止selection被转换成Caret
+        if (immediateText.length > 0) {
+          
+          const startTime = Date.now();
+          let frameCount = 0;
+          let lastRestoreTime = 0;
+          const monitorSelection = () => {
+            frameCount++;
+            const sel = window.getSelection();
+            const elapsed = Date.now() - startTime;
+            const selType = sel?.type || 'none';            const rangeCount = sel?.rangeCount || 0;
+            
+            // 每10帧记录一次，避免日志过多
+            if (frameCount % 10 === 1 || selType === 'Caret' || selType === 'None') {
+            }
+            
+            // 只监控500ms（足够长以防止初始的Caret转换）
+            if (elapsed > 500) {
+              selectionMonitorRef.current = null;
+              return;
+            }
+            
+            // 如果selection变成了Caret或被清除，恢复它（但不要过于频繁）
+            if (sel && savedRangeRef.current && Date.now() - lastRestoreTime > 5) {
+              if (sel.type === 'Caret' || sel.rangeCount === 0 || (sel.toString().trim().length === 0 && rangeCount > 0)) {
+                try {
+                  // 检查savedRange状态                  sel.removeAllRanges();
+                  sel.addRange(savedRangeRef.current.cloneRange());
+                  lastRestoreTime = Date.now();                } catch (_err) {
+                }
+              }
+            }
+            
+            // 继续监控 - 确保RAF持续运行
+            selectionMonitorRef.current = requestAnimationFrame(monitorSelection);
+          };
+          
+          // 停止之前的监控
+          if (selectionMonitorRef.current) {
+            cancelAnimationFrame(selectionMonitorRef.current);
+          }
+          
+          // 开始监控
+          selectionMonitorRef.current = requestAnimationFrame(monitorSelection);
+        }
+      } else {
+        savedRangeRef.current = null;
+      }
+      
+      // 延迟handleSelection到RAF监控结束后（600ms），避免React重新渲染导致Range失效
+      if (selectionTimeout) {
+        clearTimeout(selectionTimeout);
+      }
+      selectionTimeout = window.setTimeout(() => {
+        handleSelection();
+        selectionTimeout = null;
+      }, 600);
+    };
+
+    // 添加mousedown监听用于调试
+    const handleMouseDown = (_e: MouseEvent) => {
     };
 
     // 点击其他地方时清除选择
     const handleClick = (e: MouseEvent) => {
-      if (selectionPosition && contentRef.current) {
-        const target = e.target as Node;
-        if (!contentRef.current.contains(target)) {
-          handleClearSelection();
+      
+      // 如果点击在内容区域内，且有保存的选择范围，阻止默认行为并恢复selection
+      if (contentRef.current && contentRef.current.contains(e.target as Node) && savedRangeRef.current) {
+        // 阻止click事件的默认行为，防止浏览器清除selection
+        e.preventDefault();
+        // 立即恢复选择范围，防止click事件将其collapse成Caret
+        const currentSelection = window.getSelection();
+        if (currentSelection) {
+          // 如果selection被collapse了（type是Caret），恢复Range
+          if (currentSelection.type === 'Caret' || currentSelection.rangeCount === 0) {
+            try {
+              currentSelection.removeAllRanges();
+              currentSelection.addRange(savedRangeRef.current.cloneRange());
+            } catch (_err) {
+              // 忽略错误
+            }
+          }
         }
+        
+        // 再次延迟检查，确保恢复成功
+        setTimeout(() => {
+          const selectionAfterDelay = window.getSelection();          // 如果还是被清除了，再次尝试恢复
+          if (selectionAfterDelay && (selectionAfterDelay.type === 'Caret' || selectionAfterDelay.rangeCount === 0) && savedRangeRef.current) {
+            try {
+              selectionAfterDelay.removeAllRanges();
+              selectionAfterDelay.addRange(savedRangeRef.current.cloneRange());
+            } catch (_err) {
+              // 忽略错误
+            }
+          }
+        }, 10);
       }
+      
+      // 延迟处理清除逻辑，确保 mouseup 事件的处理已经完成
+      setTimeout(() => {
+        if (selectionPosition && contentRef.current) {
+          const target = e.target as Node;
+          const isInContent = contentRef.current.contains(target);
+          
+          if (!isInContent) {
+            handleClearSelection();
+            savedRangeRef.current = null;
+          }
+        }
+      }, 100);
     };
 
+    // 监听鼠标事件
+    document.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('click', handleClick);
     
     return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('click', handleClick);
+      if (selectionTimeout) {
+        clearTimeout(selectionTimeout);
+      }
+      // 不在cleanup中取消RAF监控 - RAF有自己的超时机制
+      // RAF只在特定情况下取消：handleClearSelection或500ms超时
     };
-  }, [selectionPosition]);
+  }, [selectionPosition, handleClearSelection, isDark]);
 
   // 应用高亮标注
   const applyHighlight = useCallback(() => {
@@ -225,24 +498,18 @@ const ReaderContent = memo(({
             }`}></div>
           </div>
 
-          {/* Chapter Content */}
-          <div
-            className={`leading-relaxed ${
-              isDark ? 'text-neutral-300' : 'text-neutral-700'
-            }`}
-            dangerouslySetInnerHTML={{ __html: renderedContent }}
-            onClick={(e) => {
-              const target = e.target as HTMLElement;
-              const noteId = target.getAttribute('data-note-id');
-              if (noteId && onNoteClick) {
-                onNoteClick(parseInt(noteId));
-              }
-            }}
+          {/* Chapter Content - 使用MemoizedContent防止DOM节点被替换 */}
+          <MemoizedContent
+            htmlContent={renderedContent}
+            isDark={isDark}
+            contentRef={contentRef}
+            onNoteClick={onNoteClick}
           />
         </article>
       </div>
 
       {/* 添加样式以支持标注的悬停效果 */}
+      {/* 注意：::selection 样式已在 useEffect 中动态注入到 <head>，这里不再重复定义 */}
       <style>{`
         .text-highlight:hover {
           background-color: rgba(251, 191, 36, 0.4) !important;
