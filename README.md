@@ -138,7 +138,7 @@ Deep Reader 专为重度知识工作者、学生和隐私敏感用户设计。�
 
 ## 📄 开源协议
 
-本项目采用 [MIT License](LICENSE) 许可协议。
+本项目采用 [GPL v3](LICENSE) 许可协议。
 
 ---
 
