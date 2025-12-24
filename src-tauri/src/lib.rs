@@ -1037,7 +1037,7 @@ fn delete_note(app: AppHandle, id: i32) -> Result<(), String> {
 
 // 获取回收站中的笔记
 #[tauri::command]
-fn get_trash_notes(app: AppHandle) -> Result<Vec<Note>, String> {
+fn get_trash_notes(app: AppHandle) -> Result<Vec<Note>, String> {   
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
     

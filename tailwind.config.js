@@ -5,7 +5,21 @@ export default {
     "./index.html",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: [
+          "Inter",
+          "PingFang SC",
+          "Hiragino Sans GB",
+          "Microsoft YaHei",
+          "WenQuanYi Micro Hei",
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          "sans-serif",
+        ],
+      },
+    },
   },
   plugins: [
     require('@tailwindcss/typography'),
