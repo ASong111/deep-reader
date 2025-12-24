@@ -30,7 +30,6 @@ Deep Reader 专为重度知识工作者、学生和隐私敏感用户设计。�
 | 沉浸式阅读 | 知识库管理 | AI 助手互动 |
 | :---: | :---: | :---: |
 | ![阅读界面](https://via.placeholder.com/300x200?text=Reading+UI) | ![知识库](https://via.placeholder.com/300x200?text=Knowledge+Base) | ![AI 助手](https://via.placeholder.com/300x200?text=AI+Assistant) |
-*(注：此处可替换为实际截图)*
 
 ## ✨ 核心功能
 
