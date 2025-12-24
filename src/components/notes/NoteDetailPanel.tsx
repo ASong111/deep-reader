@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Note, Category, Tag, UpdateNoteRequest } from "../../types/notes";
-import { Edit2, Trash2, Save, X, ChevronDown, ChevronUp, Settings, Sparkles, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Edit2, Trash2, Save, X, ChevronDown, ChevronUp, Settings, Sparkles, Loader2, CheckCircle2, AlertCircle, Navigation, MapPin } from "lucide-react";
 import AIConfigDialog from "../ai/AIConfigDialog";
 
 interface NoteDetailPanelProps {
@@ -10,6 +10,8 @@ interface NoteDetailPanelProps {
   onDelete: (id: number) => void;
   categories: Category[];
   tags: Tag[];
+  onJumpToChapter?: (chapterIndex: number) => void;
+  onJumpToNote?: (noteId: number) => void;
 }
 
 export default function NoteDetailPanel({
@@ -18,6 +20,8 @@ export default function NoteDetailPanel({
   onDelete,
   categories,
   tags,
+  onJumpToChapter,
+  onJumpToNote,
 }: NoteDetailPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
@@ -32,7 +36,7 @@ export default function NoteDetailPanel({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAction, setAiAction] = useState<string>("");
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
+  // const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (note) {
@@ -275,6 +279,38 @@ export default function NoteDetailPanel({
           )}
         </div>
       </div>
+
+      {/* 快速跳转导航区域 */}
+      {(note.chapter_index !== null && note.chapter_index !== undefined) && (
+        <div className="p-3 border-b border-gray-200 bg-gray-50">
+          <div className="flex items-center gap-2">
+            <Navigation className="w-4 h-4 text-gray-500" />
+            <span className="text-xs font-medium text-gray-700">快速跳转</span>
+          </div>
+          <div className="flex gap-2 mt-2">
+            {onJumpToChapter && note.chapter_index !== null && (
+              <button
+                onClick={() => onJumpToChapter(note.chapter_index!)}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                title="跳转到章节"
+              >
+                <Navigation className="w-3 h-3" />
+                跳转到章节
+              </button>
+            )}
+            {onJumpToNote && (
+              <button
+                onClick={() => onJumpToNote(note.id)}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                title="在文中定位"
+              >
+                <MapPin className="w-3 h-3" />
+                在文中定位
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 内容区域 */}
       <div className="flex-1 overflow-y-auto p-4">

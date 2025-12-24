@@ -75,11 +75,11 @@ struct AnthropicContent {
     text: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct GoogleRequest {
-    contents: Vec<GoogleContent>,
-    generation_config: GoogleGenerationConfig,
-}
+// #[derive(Serialize, Deserialize, Debug)]
+// struct GoogleRequest {
+//     contents: Vec<GoogleContent>,
+//     generation_config: GoogleGenerationConfig,
+// }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct GoogleContent {
@@ -91,11 +91,11 @@ struct GooglePart {
     text: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct GoogleGenerationConfig {
-    temperature: f64,
-    max_output_tokens: i32,
-}
+// #[derive(Serialize, Deserialize, Debug)]
+// struct GoogleGenerationConfig {
+//     temperature: f64,
+//     max_output_tokens: i32,
+// }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct GoogleResponse {
@@ -592,7 +592,7 @@ fn get_book_details(app: AppHandle, id: i32) -> Result<Vec<ChapterInfo>, String>
     let path: String = conn.query_row("SELECT file_path FROM books WHERE id = ?1", [id], |row| row.get(0))
         .map_err(|_| "找不到书籍".to_string())?;
 
-    let mut doc = EpubDoc::new(&path).map_err(|e| e.to_string())?;
+    let doc = EpubDoc::new(&path).map_err(|e| e.to_string())?;
     
     let mut chapters = Vec::new();
     // 简单获取章节列表

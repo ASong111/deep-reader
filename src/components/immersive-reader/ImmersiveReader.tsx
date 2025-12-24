@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BookOpen, ArrowLeft, Plus, BarChart3 } from 'lucide-react';
+import { BookOpen, ArrowLeft, Plus, BarChart3, ChevronLeft, Menu } from 'lucide-react';
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Book, ViewMode, ThemeMode } from './types';
@@ -28,7 +28,7 @@ interface BackendChapterInfo {
 }
 
 const ImmersiveReader = () => {
-  const { toasts, removeToast } = useToastManager();
+  const { toasts, removeToast, showSuccess } = useToastManager();
   const [currentView, setCurrentView] = useState<ViewMode>('library');
   const [books, setBooks] = useState<Book[]>([]);
   const [activeBook, setActiveBook] = useState<Book | null>(null);
@@ -44,6 +44,8 @@ const ImmersiveReader = () => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [notesRefreshKey, setNotesRefreshKey] = useState(0);
   const [chapterNotes, setChapterNotes] = useState<Note[]>([]);
+  const [jumpToNoteId, setJumpToNoteId] = useState<number | null>(null);
+  const [isChapterListVisible, setIsChapterListVisible] = useState<boolean>(true);
 
   // 将后端书籍数据转换为前端格式
   const convertBackendBookToBook = useCallback((backendBook: BackendBook): Book => {
@@ -226,6 +228,15 @@ const ImmersiveReader = () => {
     }
   }, [activeBook, loadChapterContent]);
 
+  // 跳转到下一章
+  const handleNextChapter = useCallback(() => {
+    if (!activeBook) return;
+    const nextIndex = activeChapterIndex + 1;
+    if (nextIndex < activeBook.chapters.length) {
+      handleChapterClick(nextIndex);
+    }
+  }, [activeBook, activeChapterIndex, handleChapterClick]);
+
   // 切换阅读主题
   const toggleReaderTheme = () => {
     setReaderTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -284,10 +295,15 @@ const ImmersiveReader = () => {
 
       await invoke("create_note", { request });
       setNotesRefreshKey(prev => prev + 1);
+      
+      // 显示成功提示
+      const annotationType = type === 'highlight' ? '高亮' : '下划线';
+      const displayText = text.length > 30 ? text.substring(0, 30) + "..." : text;
+      showSuccess(`已添加${annotationType}标注: "${displayText}"`);
     } catch (error) {
       console.error("创建标注失败:", error);
     }
-  }, [activeBook, activeChapterIndex]);
+  }, [activeBook, activeChapterIndex, showSuccess]);
 
   // 处理点击标注
   const handleNoteClick = useCallback(async (noteId: number) => {
@@ -309,8 +325,17 @@ const ImmersiveReader = () => {
   const handleNoteCreated = useCallback(() => {
     setNotesRefreshKey(prev => prev + 1);
     setIsCreateNoteDialogOpen(false);
+    
+    // 显示成功提示，包含所选文本
+    if (highlightedText) {
+      const displayText = highlightedText.length > 30 ? highlightedText.substring(0, 30) + "..." : highlightedText;
+      showSuccess(`笔记创建成功: "${displayText}"`);
+    } else {
+      showSuccess("笔记创建成功");
+    }
+    
     setHighlightedText("");
-  }, []);
+  }, [highlightedText, showSuccess]);
 
   // 处理笔记选择
   const handleNoteSelect = useCallback((note: Note) => {
@@ -340,6 +365,23 @@ const ImmersiveReader = () => {
     }
     setNotesRefreshKey(prev => prev + 1);
   }, [selectedNote]);
+
+  // 处理跳转到章节
+  const handleJumpToChapter = useCallback((chapterIndex: number) => {
+    if (activeBook) {
+      handleChapterClick(chapterIndex);
+    }
+  }, [activeBook, handleChapterClick]);
+
+  // 处理跳转到笔记位置
+  const handleJumpToNote = useCallback((noteId: number) => {
+    // 设置跳转目标，触发 ReaderContent 中的滚动逻辑
+    setJumpToNoteId(noteId);
+    // 清除跳转状态，以便下次点击时可以再次触发
+    setTimeout(() => {
+      setJumpToNoteId(null);
+    }, 500);
+  }, []);
 
   // Analytics View
   if (currentView === 'analytics') {
@@ -509,27 +551,63 @@ const ImmersiveReader = () => {
             />
           </div>
 
-          {/* 中间左侧：章节列表 (15%) */}
-          <aside className="w-[15%] bg-neutral-800 border-r border-neutral-700 overflow-y-auto">
-            <ChapterList
-              chapters={activeBook.chapters}
-              activeChapterIndex={safeChapterIndex}
-              onChapterClick={handleChapterClick}
-            />
+          {/* 中间左侧：章节列表 (15% / 0%) */}
+          <aside 
+            className={`bg-neutral-800 border-r border-neutral-700 overflow-hidden transition-all duration-300 ease-in-out ${
+              isChapterListVisible ? 'w-[15%]' : 'w-0'
+            }`}
+          >
+            <div className={`h-full overflow-y-auto transition-opacity duration-300 ${
+              isChapterListVisible ? 'opacity-100' : 'opacity-0'
+            }`}>
+              <div className="relative h-full">
+                {/* 收起按钮 */}
+                <button
+                  onClick={() => setIsChapterListVisible(false)}
+                  className="absolute top-4 right-2 z-10 p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded transition-colors"
+                  title="收起章节列表"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <ChapterList
+                  chapters={activeBook.chapters}
+                  activeChapterIndex={safeChapterIndex}
+                  onChapterClick={handleChapterClick}
+                />
+              </div>
+            </div>
           </aside>
 
-          {/* 中间：阅读内容 (40%) */}
-          <ReaderContent
-            chapter={currentChapter}
-            theme={readerTheme}
-            onThemeToggle={toggleReaderTheme}
-            onTextSelection={handleTextSelection}
-            bookId={activeBook.id}
-            chapterIndex={safeChapterIndex}
-            notes={chapterNotes}
-            onAnnotate={handleAnnotate}
-            onNoteClick={handleNoteClick}
-          />
+          {/* 展开按钮（当章节列表收起时显示） */}
+          {!isChapterListVisible && (
+            <button
+              onClick={() => setIsChapterListVisible(true)}
+              className="fixed left-[20%] top-1/2 -translate-y-1/2 z-20 p-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white border-r border-neutral-700 rounded-r-lg transition-all duration-300 shadow-lg"
+              title="展开章节列表"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
+
+          {/* 中间：阅读内容 (40% -> 55% 当章节列表收起时) */}
+          <div className={`transition-all duration-300 ease-in-out ${
+            isChapterListVisible ? 'w-2/5' : 'w-[55%]'
+          }`}>
+            <ReaderContent
+              chapter={currentChapter}
+              theme={readerTheme}
+              onThemeToggle={toggleReaderTheme}
+              onTextSelection={handleTextSelection}
+              bookId={activeBook.id}
+              chapterIndex={safeChapterIndex}
+              notes={chapterNotes}
+              onAnnotate={handleAnnotate}
+              onNoteClick={handleNoteClick}
+              jumpToNoteId={jumpToNoteId}
+              onNextChapter={handleNextChapter}
+              hasNextChapter={safeChapterIndex < activeBook.chapters.length - 1}
+            />
+          </div>
 
           {/* 右侧：笔记详情面板 (25%) */}
           <div className="w-1/4 bg-neutral-800 border-l border-neutral-700">
@@ -539,6 +617,8 @@ const ImmersiveReader = () => {
               onDelete={handleNoteDelete}
               categories={categories}
               tags={tags}
+              onJumpToChapter={handleJumpToChapter}
+              onJumpToNote={handleJumpToNote}
             />
           </div>
         </main>

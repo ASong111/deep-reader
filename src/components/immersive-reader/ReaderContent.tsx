@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import { Moon, Sun, Highlighter, Underline, StickyNote, X } from 'lucide-react';
+import { Moon, Sun, Highlighter, Underline, StickyNote, X, ChevronRight } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Chapter, ThemeMode } from './types';
 import { Note } from '../../types/notes';
@@ -14,6 +14,9 @@ interface ReaderContentProps {
   notes?: Note[];
   onAnnotate?: (text: string, type: 'highlight' | 'underline') => void;
   onNoteClick?: (noteId: number) => void;
+  jumpToNoteId?: number | null;
+  onNextChapter?: () => void;
+  hasNextChapter?: boolean;
 }
 
 // 独立的content组件，使用React.memo防止重新渲染导致DOM节点替换
@@ -52,7 +55,10 @@ const ReaderContent = memo(({
   onTextSelection,
   notes = [],
   onAnnotate,
-  onNoteClick
+  onNoteClick,
+  jumpToNoteId,
+  onNextChapter,
+  hasNextChapter = false
 }: ReaderContentProps) => {
   const isDark = theme === 'dark';
   const contentRef = useRef<HTMLDivElement>(null);
@@ -158,6 +164,32 @@ const ReaderContent = memo(({
 
     return content;
   }, [chapter.content, notes]);
+
+  // 自动滚动到指定笔记位置
+  useEffect(() => {
+    if (jumpToNoteId && contentRef.current) {
+      // 等待 DOM 更新完成
+      setTimeout(() => {
+        const noteElement = contentRef.current?.querySelector(
+          `[data-note-id="${jumpToNoteId}"]`
+        ) as HTMLElement;
+        
+        if (noteElement) {
+          // 滚动到笔记位置，并添加高亮效果
+          noteElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+          
+          // 添加临时高亮效果
+          noteElement.classList.add('annotation-success');
+          setTimeout(() => {
+            noteElement.classList.remove('annotation-success');
+          }, 1000);
+        }
+      }, 100);
+    }
+  }, [jumpToNoteId]);
 
   // 处理文本选择
   useEffect(() => {
@@ -422,7 +454,7 @@ const ReaderContent = memo(({
   }, [selectedText, onTextSelection, handleClearSelection]);
 
   return (
-    <section className={`w-2/5 overflow-y-auto transition-colors duration-300 relative ${
+    <section className={`w-full h-full overflow-y-auto transition-colors duration-300 relative ${
       isDark ? 'bg-neutral-900' : 'bg-neutral-50'
     }`}>
       {/* Theme Toggle Button */}
@@ -451,25 +483,25 @@ const ReaderContent = memo(({
         >
           <button
             onClick={applyHighlight}
-            className="p-2 hover:bg-yellow-100 dark:hover:bg-yellow-900 rounded transition-colors group"
+            className="p-2 hover:bg-yellow-100 dark:hover:bg-yellow-900 rounded transition-all duration-200 group active:scale-95"
             title="高亮"
           >
-            <Highlighter className="w-4 h-4 text-yellow-600 dark:text-yellow-400 group-hover:scale-110 transition-transform" />
+            <Highlighter className="w-4 h-4 text-yellow-600 dark:text-yellow-400 group-hover:scale-110 transition-transform duration-200" />
           </button>
           <button
             onClick={applyUnderline}
-            className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900 rounded transition-colors group"
+            className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900 rounded transition-all duration-200 group active:scale-95"
             title="下划线"
           >
-            <Underline className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform" />
+            <Underline className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-200" />
           </button>
           <div className="w-px h-6 bg-gray-300 dark:bg-neutral-600 mx-1"></div>
           <button
             onClick={handleCreateNote}
-            className="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900 rounded transition-colors group"
+            className="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900 rounded transition-all duration-200 group active:scale-95"
             title="创建笔记"
           >
-            <StickyNote className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
+            <StickyNote className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-200" />
           </button>
           <button
             onClick={handleClearSelection}
@@ -506,16 +538,45 @@ const ReaderContent = memo(({
             onNoteClick={onNoteClick}
           />
         </article>
+
+        {/* 下一章按钮 */}
+        {hasNextChapter && onNextChapter && (
+          <div className="mt-16 mb-12 flex justify-center border-t pt-8" style={{
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+          }}>
+            <button
+              onClick={onNextChapter}
+              className={`group flex items-center gap-2 px-8 py-3 rounded-lg font-medium transition-all duration-200 ${
+                isDark
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg hover:shadow-xl hover:scale-105'
+                  : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md hover:shadow-lg hover:scale-105'
+              } active:scale-95`}
+            >
+              <span>下一章</span>
+              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 添加样式以支持标注的悬停效果 */}
       {/* 注意：::selection 样式已在 useEffect 中动态注入到 <head>，这里不再重复定义 */}
       <style>{`
+        .reader-content {
+          font-family: Arial, sans-serif !important;
+        }
         .text-highlight:hover {
           background-color: rgba(251, 191, 36, 0.4) !important;
         }
         .text-underline:hover {
           text-decoration-thickness: 3px !important;
+        }
+        @keyframes successPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
+        .annotation-success {
+          animation: successPulse 0.3s ease-in-out;
         }
       `}</style>
     </section>

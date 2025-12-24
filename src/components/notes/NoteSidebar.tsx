@@ -19,7 +19,7 @@ export default function NoteSidebar({
   onSelectNote,
   onCreateNote,
   currentBookId,
-  currentChapterIndex,
+  // currentChapterIndex,
 }: NoteSidebarProps) {
   const [activeTab, setActiveTab] = useState<TabType>('notes');
   const [notes, setNotes] = useState<Note[]>([]);
@@ -100,11 +100,11 @@ export default function NoteSidebar({
     );
   };
 
-  const handleRestoreNote = useCallback((id: number) => {
+  const handleRestoreNote = useCallback((_id: number) => {
     loadNotes();
   }, [loadNotes]);
 
-  const handlePermanentlyDeleteNote = useCallback((id: number) => {
+  const handlePermanentlyDeleteNote = useCallback((_id: number) => {
     loadNotes();
   }, [loadNotes]);
 
