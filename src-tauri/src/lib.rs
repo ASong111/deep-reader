@@ -249,9 +249,235 @@ fn build_prompt(action: &str, note_title: &str, note_content: &str, highlighted_
     }
 }
 
+// 调用 LLM API 的通用函数（支持消息列表）
+async fn call_llm_api(
+    config: &AIConfig,
+    messages: Vec<HashMap<String, String>>,
+) -> Result<String, String> {
+    let api_key = config.api_key.as_ref().ok_or("API key 未配置")?;
+    let client = reqwest::Client::new();
+    
+    match config.platform.as_str() {
+        "openai" | "openai-cn" => {
+            let base_url = config.base_url.as_deref().unwrap_or("https://api.openai.com/v1");
+            
+            let openai_req = OpenAIRequest {
+                model: config.model.clone(),
+                messages,
+                temperature: config.temperature,
+                max_tokens: config.max_tokens,
+            };
+            
+            let response = client
+                .post(&format!("{}/chat/completions", base_url))
+                .header("Authorization", format!("Bearer {}", api_key))
+                .header("Content-Type", "application/json")
+                .json(&openai_req)
+                .send()
+                .await
+                .map_err(|e| format!("请求失败: {}", e))?;
+            
+            if !response.status().is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(format!("API 错误: {}", error_text));
+            }
+            
+            let openai_resp: OpenAIResponse = response.json()
+                .await
+                .map_err(|e| format!("解析响应失败: {}", e))?;
+            
+            openai_resp.choices.first()
+                .and_then(|c| Some(c.message.content.clone()))
+                .ok_or("未获取到响应内容".to_string())
+        },
+        "anthropic" => {
+            let base_url = config.base_url.as_deref().unwrap_or("https://api.anthropic.com");
+            
+            // 转换消息格式
+            let mut anthropic_messages = Vec::new();
+            for msg in messages {
+                if let (Some(role), Some(content)) = (msg.get("role"), msg.get("content")) {
+                    anthropic_messages.push(AnthropicMessage {
+                        role: role.clone(),
+                        content: content.clone(),
+                    });
+                }
+            }
+            
+            let anthropic_req = AnthropicRequest {
+                model: config.model.clone(),
+                max_tokens: config.max_tokens,
+                temperature: config.temperature,
+                messages: anthropic_messages,
+            };
+            
+            let response = client
+                .post(&format!("{}/v1/messages", base_url))
+                .header("x-api-key", api_key)
+                .header("anthropic-version", "2023-06-01")
+                .header("Content-Type", "application/json")
+                .json(&anthropic_req)
+                .send()
+                .await
+                .map_err(|e| format!("请求失败: {}", e))?;
+            
+            if !response.status().is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(format!("API 错误: {}", error_text));
+            }
+            
+            let anthropic_resp: AnthropicResponse = response.json()
+                .await
+                .map_err(|e| format!("解析响应失败: {}", e))?;
+            
+            anthropic_resp.content.first()
+                .and_then(|c| Some(c.text.clone()))
+                .ok_or("未获取到响应内容".to_string())
+        },
+        "google" => {
+            let base_url = config.base_url.as_deref().unwrap_or("https://generativelanguage.googleapis.com");
+            
+            // 合并所有消息内容
+            let mut combined_text = String::new();
+            for msg in messages {
+                if let (Some(role), Some(content)) = (msg.get("role"), msg.get("content")) {
+                    combined_text.push_str(&format!("{}: {}\n", role, content));
+                }
+            }
+            
+            let google_req = serde_json::json!({
+                "contents": [{
+                    "parts": [{
+                        "text": combined_text
+                    }]
+                }],
+                "generationConfig": {
+                    "temperature": config.temperature,
+                    "maxOutputTokens": config.max_tokens,
+                }
+            });
+            
+            let response = client
+                .post(&format!("{}/v1beta/models/{}:generateContent?key={}", base_url, config.model, api_key))
+                .header("Content-Type", "application/json")
+                .json(&google_req)
+                .send()
+                .await
+                .map_err(|e| format!("请求失败: {}", e))?;
+            
+            if !response.status().is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(format!("API 错误: {}", error_text));
+            }
+            
+            let google_resp: GoogleResponse = response.json()
+                .await
+                .map_err(|e| format!("解析响应失败: {}", e))?;
+            
+            google_resp.candidates.first()
+                .and_then(|c| c.content.parts.first())
+                .and_then(|p| Some(p.text.clone()))
+                .ok_or("未获取到响应内容".to_string())
+        },
+        _ => Err(format!("不支持的平台: {}", config.platform)),
+    }
+}
+
+// 即时理解：简洁释义/翻译 (F1.0)
+#[tauri::command]
+async fn explain_text(
+    app: AppHandle,
+    selected_text: String,
+    _book_id: i32,
+    _chapter_index: usize,
+) -> Result<String, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    let config = get_active_ai_config(&conn)?;
+    
+    // 构建提示词：简洁释义，针对名词/短语，不再获取章节上下文
+    let prompt = format!("请简洁地解释以下词汇或短语的含义（2-3行以内）：\n\n{}", selected_text);
+    
+    // 构建消息
+    let mut messages = Vec::new();
+    let mut system_msg = HashMap::new();
+    system_msg.insert("role".to_string(), "system".to_string());
+    system_msg.insert("content".to_string(), "你是一个专业的阅读助手，能够简洁准确地解释文字含义。请用2-3行文字回答。".to_string());
+    messages.push(system_msg);
+    
+    let mut user_msg = HashMap::new();
+    user_msg.insert("role".to_string(), "user".to_string());
+    user_msg.insert("content".to_string(), prompt);
+    messages.push(user_msg);
+    
+    call_llm_api(&config, messages).await
+}
+
+// 互动讨论：基于本章上下文的对话 (F3.0)
+#[derive(Deserialize, Debug)]
+struct ChatMessage {
+    role: String,
+    content: String,
+}
+
+#[tauri::command]
+async fn chat_with_ai(
+    app: AppHandle,
+    user_message: String,
+    book_id: i32,
+    chapter_index: usize,
+    chat_history: Option<Vec<ChatMessage>>,
+) -> Result<String, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    let config = get_active_ai_config(&conn)?;
+    
+    // 获取章节上下文（纯文本）
+    let chapter_context = get_chapter_plain_text(&app, book_id, chapter_index)
+        .map_err(|e| format!("获取章节上下文失败: {}", e))?;
+    
+    // 限制章节上下文长度
+    let context_limit = 3000;
+    let truncated_context = if chapter_context.len() > context_limit {
+        format!("{}...", &chapter_context[..context_limit])
+    } else {
+        chapter_context
+    };
+    
+    // 构建消息列表
+    let mut messages = Vec::new();
+    
+    // 系统消息：明确指示仅基于当前章节回答
+    let mut system_msg = HashMap::new();
+    system_msg.insert("role".to_string(), "system".to_string());
+    system_msg.insert("content".to_string(), format!(
+        "你是一个专业的阅读助手。用户正在阅读一本书的某个章节。\n\n当前章节内容：\n{}\n\n请严格基于以上章节内容回答用户的问题。如果问题超出章节内容范围，请礼貌地说明。",
+        truncated_context
+    ));
+    messages.push(system_msg);
+    
+    // 添加历史对话（如果有）
+    if let Some(history) = chat_history {
+        for msg in history {
+            let mut history_msg = HashMap::new();
+            history_msg.insert("role".to_string(), msg.role);
+            history_msg.insert("content".to_string(), msg.content);
+            messages.push(history_msg);
+        }
+    }
+    
+    // 添加当前用户消息
+    let mut user_msg = HashMap::new();
+    user_msg.insert("role".to_string(), "user".to_string());
+    user_msg.insert("content".to_string(), user_message);
+    messages.push(user_msg);
+    
+    call_llm_api(&config, messages).await
+}
+
 // 调用 AI API
 #[tauri::command]
-fn call_ai_assistant(app: AppHandle, request: AIRequest) -> Result<String, String> {
+async fn call_ai_assistant(app: AppHandle, request: AIRequest) -> Result<String, String> {
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
     
@@ -265,7 +491,7 @@ fn call_ai_assistant(app: AppHandle, request: AIRequest) -> Result<String, Strin
         request.highlighted_text.as_deref(),
     );
     
-    let client = reqwest::blocking::Client::new();
+    let client = reqwest::Client::new();
     let response_text = match config.platform.as_str() {
         "openai" | "openai-cn" => {
             let base_url = config.base_url.as_deref().unwrap_or(
@@ -300,14 +526,16 @@ fn call_ai_assistant(app: AppHandle, request: AIRequest) -> Result<String, Strin
                 .header("Content-Type", "application/json")
                 .json(&openai_req)
                 .send()
+                .await
                 .map_err(|e| format!("请求失败: {}", e))?;
             
             if !response.status().is_success() {
-                let error_text = response.text().unwrap_or_default();
+                let error_text = response.text().await.unwrap_or_default();
                 return Err(format!("API 错误: {}", error_text));
             }
             
             let openai_resp: OpenAIResponse = response.json()
+                .await
                 .map_err(|e| format!("解析响应失败: {}", e))?;
             
             openai_resp.choices.first()
@@ -336,14 +564,16 @@ fn call_ai_assistant(app: AppHandle, request: AIRequest) -> Result<String, Strin
                 .header("Content-Type", "application/json")
                 .json(&anthropic_req)
                 .send()
+                .await
                 .map_err(|e| format!("请求失败: {}", e))?;
             
             if !response.status().is_success() {
-                let error_text = response.text().unwrap_or_default();
+                let error_text = response.text().await.unwrap_or_default();
                 return Err(format!("API 错误: {}", error_text));
             }
             
             let anthropic_resp: AnthropicResponse = response.json()
+                .await
                 .map_err(|e| format!("解析响应失败: {}", e))?;
             
             anthropic_resp.content.first()
@@ -371,14 +601,16 @@ fn call_ai_assistant(app: AppHandle, request: AIRequest) -> Result<String, Strin
                 .header("Content-Type", "application/json")
                 .json(&google_req)
                 .send()
+                .await
                 .map_err(|e| format!("请求失败: {}", e))?;
             
             if !response.status().is_success() {
-                let error_text = response.text().unwrap_or_default();
+                let error_text = response.text().await.unwrap_or_default();
                 return Err(format!("API 错误: {}", error_text));
             }
             
             let google_resp: GoogleResponse = response.json()
+                .await
                 .map_err(|e| format!("解析响应失败: {}", e))?;
             
             google_resp.candidates.first()
@@ -394,7 +626,7 @@ fn call_ai_assistant(app: AppHandle, request: AIRequest) -> Result<String, Strin
 
 // AI助手：总结笔记
 #[tauri::command]
-fn summarize_note(app: AppHandle, note_id: i32) -> Result<String, String> {
+async fn summarize_note(app: AppHandle, note_id: i32) -> Result<String, String> {
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
     let key = get_encryption_key(&app)?;
@@ -407,12 +639,12 @@ fn summarize_note(app: AppHandle, note_id: i32) -> Result<String, String> {
         action: "summarize".to_string(),
     };
     
-    call_ai_assistant(app, request)
+    call_ai_assistant(app, request).await
 }
 
 // AI助手：生成问题
 #[tauri::command]
-fn generate_questions(app: AppHandle, note_id: i32) -> Result<String, String> {
+async fn generate_questions(app: AppHandle, note_id: i32) -> Result<String, String> {
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
     let key = get_encryption_key(&app)?;
@@ -425,12 +657,12 @@ fn generate_questions(app: AppHandle, note_id: i32) -> Result<String, String> {
         action: "questions".to_string(),
     };
     
-    call_ai_assistant(app, request)
+    call_ai_assistant(app, request).await
 }
 
 // AI助手：扩展笔记
 #[tauri::command]
-fn expand_note(app: AppHandle, note_id: i32) -> Result<String, String> {
+async fn expand_note(app: AppHandle, note_id: i32) -> Result<String, String> {
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
     let key = get_encryption_key(&app)?;
@@ -443,12 +675,12 @@ fn expand_note(app: AppHandle, note_id: i32) -> Result<String, String> {
         action: "expand".to_string(),
     };
     
-    call_ai_assistant(app, request)
+    call_ai_assistant(app, request).await
 }
 
 // AI助手：获取建议
 #[tauri::command]
-fn get_ai_suggestion(app: AppHandle, note_id: i32) -> Result<String, String> {
+async fn get_ai_suggestion(app: AppHandle, note_id: i32) -> Result<String, String> {
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
     let key = get_encryption_key(&app)?;
@@ -461,7 +693,7 @@ fn get_ai_suggestion(app: AppHandle, note_id: i32) -> Result<String, String> {
         action: "suggestions".to_string(),
     };
     
-    call_ai_assistant(app, request)
+    call_ai_assistant(app, request).await
 }
 
 mod db;
@@ -603,6 +835,40 @@ fn get_book_details(app: AppHandle, id: i32) -> Result<Vec<ChapterInfo>, String>
         });
     }
     Ok(chapters)
+}
+
+// 从 HTML 内容中提取纯文本（去除标签）
+fn extract_plain_text(html: &str) -> String {
+    let tag_regex = regex::Regex::new(r"<[^>]+>").unwrap();
+    let text = tag_regex.replace_all(html, " ");
+    // 解码 HTML 实体
+    let text = text.replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'");
+    // 清理多余的空白字符
+    let whitespace_regex = regex::Regex::new(r"\s+").unwrap();
+    whitespace_regex.replace_all(&text, " ").trim().to_string()
+}
+
+// 获取章节的纯文本内容（用于 AI 上下文）
+fn get_chapter_plain_text(app: &AppHandle, book_id: i32, chapter_index: usize) -> Result<String, String> {
+    let db_path = get_db_path(app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    let path: String = conn.query_row("SELECT file_path FROM books WHERE id = ?1", [book_id], |row| row.get(0))
+        .map_err(|_| "找不到书籍".to_string())?;
+
+    let mut doc = EpubDoc::new(&path).map_err(|e| e.to_string())?;
+    if !doc.set_current_chapter(chapter_index) {
+        return Err(format!("无法设置章节 {}", chapter_index));
+    }
+    
+    let (content, _) = doc.get_current_str()
+        .ok_or_else(|| "无法获取章节内容".to_string())?;
+    
+    Ok(extract_plain_text(&content))
 }
 
 #[tauri::command]
@@ -1657,6 +1923,8 @@ pub fn run() {
             get_ai_configs,
             update_ai_config,
             call_ai_assistant,
+            explain_text,
+            chat_with_ai,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

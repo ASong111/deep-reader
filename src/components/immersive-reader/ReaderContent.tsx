@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import { Highlighter, Underline, StickyNote, X, ChevronRight } from 'lucide-react';
+import { Highlighter, Underline, StickyNote, X, ChevronRight, Sparkles } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Chapter, ThemeMode } from './types';
 import { Note } from '../../types/notes';
@@ -16,6 +16,7 @@ interface ReaderContentProps {
   jumpToNoteId?: number | null;
   onNextChapter?: () => void;
   hasNextChapter?: boolean;
+  onExplainText?: (text: string) => void;
 }
 
 // 独立的content组件，使用React.memo防止重新渲染导致DOM节点替换
@@ -57,7 +58,8 @@ const ReaderContent = memo(({
   onNoteClick,
   jumpToNoteId,
   onNextChapter,
-  hasNextChapter = false
+  hasNextChapter = false,
+  onExplainText,
 }: ReaderContentProps) => {
   const isDark = theme === 'dark';
   
@@ -460,6 +462,14 @@ const ReaderContent = memo(({
     }
   }, [selectedText, onTextSelection, handleClearSelection]);
 
+  // AI 释义
+  const handleExplainText = useCallback(() => {
+    if (selectedText && onExplainText) {
+      onExplainText(selectedText);
+      handleClearSelection();
+    }
+  }, [selectedText, onExplainText, handleClearSelection]);
+
   return (
     <section 
       className="w-full h-full overflow-y-auto relative"
@@ -493,6 +503,13 @@ const ReaderContent = memo(({
             <Underline className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-200" />
           </button>
           <div className="w-px h-6 bg-gray-300 dark:bg-neutral-600 mx-1"></div>
+          <button
+            onClick={handleExplainText}
+            className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900 rounded transition-all duration-200 group active:scale-95"
+            title="AI 释义"
+          >
+            <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-200" />
+          </button>
           <button
             onClick={handleCreateNote}
             className="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900 rounded transition-all duration-200 group active:scale-95"

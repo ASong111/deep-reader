@@ -49,6 +49,9 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
   const [chapterNotes, setChapterNotes] = useState<Note[]>([]);
   const [jumpToNoteId, setJumpToNoteId] = useState<number | null>(null);
   const [isChapterListVisible, setIsChapterListVisible] = useState<boolean>(true);
+  
+  // AI 助手相关状态（用于触发释义）
+  const [aiSelectedText, setAiSelectedText] = useState<string>('');
 
   // 将后端书籍数据转换为前端格式
   const convertBackendBookToBook = useCallback((backendBook: BackendBook): Book => {
@@ -317,6 +320,15 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
   const handleTextSelection = useCallback((text: string) => {
     setHighlightedText(text);
     setIsCreateNoteDialogOpen(true);
+  }, []);
+
+  // 处理 AI 释义请求（触发 NoteDetailPanel 中的释义功能）
+  const handleExplainText = useCallback((text: string) => {
+    // 先清除，然后设置新值，确保能触发 useEffect
+    setAiSelectedText('');
+    setTimeout(() => {
+      setAiSelectedText(text);
+    }, 0);
   }, []);
 
   // 处理创建笔记成功
@@ -856,6 +868,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
               jumpToNoteId={jumpToNoteId}
               onNextChapter={handleNextChapter}
               hasNextChapter={safeChapterIndex < activeBook.chapters.length - 1}
+              onExplainText={handleExplainText}
             />
           </div>
 
@@ -876,6 +889,10 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
               onJumpToChapter={handleJumpToChapter}
               onJumpToNote={handleJumpToNote}
               theme={theme}
+              bookId={activeBook.id}
+              chapterIndex={safeChapterIndex}
+              onExplainText={handleExplainText}
+              selectedTextForExplain={aiSelectedText}
             />
           </div>
         </main>
@@ -892,6 +909,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
           bookId={activeBook.id}
           chapterIndex={safeChapterIndex}
         />
+        
         <ToastContainer toasts={toasts} onRemove={removeToast} />
       </div>
     );
