@@ -96,10 +96,11 @@ button {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  /* 注释掉深色模式背景色，使用沉浸式阅读器自己的颜色方案 */
+  /* :root {
     color: #f6f6f6;
     background-color: #2f2f2f;
-  }
+  } */
 
   a:hover {
     color: #24c8db;

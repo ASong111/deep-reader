@@ -102,17 +102,7 @@ function App() {
 
   // 如果使用沉浸式 UI，直接返回新组件
   if (useImmersiveUI) {
-    // return (
-    //   <div className="relative">
-    //     <button 
-    //       onClick={() => setUseImmersiveUI(false)}
-    //       className="absolute top-4 right-4 z-50 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium shadow-lg transition-colors"
-    //     >
-    //       切换到原始 UI
-    //     </button>
-    //     <ImmersiveReader />
-    //   </div>
-    // );
+    // 直接返回 ImmersiveReader，让它自己管理背景色
     return <ImmersiveReader />;
   }
 

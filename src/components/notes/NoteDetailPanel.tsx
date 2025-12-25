@@ -4,6 +4,8 @@ import { Note, Category, Tag, UpdateNoteRequest } from "../../types/notes";
 import { Edit2, Trash2, Save, X, ChevronDown, ChevronUp, Settings, Sparkles, Loader2, CheckCircle2, AlertCircle, Navigation, MapPin } from "lucide-react";
 import AIConfigDialog from "../ai/AIConfigDialog";
 
+type ThemeMode = 'light' | 'dark';
+
 interface NoteDetailPanelProps {
   note: Note | null;
   onUpdate: () => void;
@@ -12,6 +14,7 @@ interface NoteDetailPanelProps {
   tags: Tag[];
   onJumpToChapter?: (chapterIndex: number) => void;
   onJumpToNote?: (noteId: number) => void;
+  theme?: ThemeMode;
 }
 
 export default function NoteDetailPanel({
@@ -22,7 +25,9 @@ export default function NoteDetailPanel({
   tags,
   onJumpToChapter,
   onJumpToNote,
+  theme = 'light',
 }: NoteDetailPanelProps) {
+  const isDark = theme === 'dark';
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [editedContent, setEditedContent] = useState("");
@@ -198,18 +203,40 @@ export default function NoteDetailPanel({
 
   if (!note) {
     return (
-      <div className="h-full flex items-center justify-center text-gray-400">
+      <div 
+        className="h-full flex items-center justify-center"
+        style={{
+          backgroundColor: isDark ? '#3A302A' : '#EAE4D8',
+          color: isDark ? '#B8A895' : '#6B5D52'
+        }}
+      >
         <p className="text-sm">选择一个笔记查看详情</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-white border-l border-gray-200">
+    <div 
+      className="h-full flex flex-col border-l"
+      style={{
+        backgroundColor: isDark ? '#2D2520' : '#F5F1E8',
+        borderColor: isDark ? '#4A3D35' : '#D4C8B8'
+      }}
+    >
       {/* 头部操作栏 */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+      <div 
+        className="p-4 border-b flex items-center justify-between"
+        style={{
+          borderColor: isDark ? '#4A3D35' : '#D4C8B8'
+        }}
+      >
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-gray-900">笔记详情</h3>
+          <h3 
+            className="text-lg font-semibold"
+            style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+          >
+            笔记详情
+          </h3>
           {isEditing && (
             <div className="flex items-center gap-2 text-xs">
               {saveStatus === 'saving' && (
@@ -238,7 +265,14 @@ export default function NoteDetailPanel({
             <>
               <button
                 onClick={handleSave}
-                className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors"
+                className="p-2 rounded-md transition-colors"
+                style={{ color: '#4CAF50' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = isDark ? '#4A3D35' : '#D4C8B8';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
                 title="保存"
               >
                 <Save className="w-4 h-4" />
@@ -253,7 +287,14 @@ export default function NoteDetailPanel({
                     setSelectedTagIds(note.tags.map((t) => t.id));
                   }
                 }}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                className="p-2 rounded-md transition-colors"
+                style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = isDark ? '#4A3D35' : '#D4C8B8';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
                 title="取消"
               >
                 <X className="w-4 h-4" />
@@ -263,14 +304,28 @@ export default function NoteDetailPanel({
             <>
               <button
                 onClick={() => setIsEditing(true)}
-                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                className="p-2 rounded-md transition-colors"
+                style={{ color: isDark ? '#D4A574' : '#A67C52' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = isDark ? '#4A3D35' : '#D4C8B8';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
                 title="编辑"
               >
                 <Edit2 className="w-4 h-4" />
               </button>
               <button
                 onClick={handleDelete}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                className="p-2 rounded-md transition-colors"
+                style={{ color: '#EF4444' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = isDark ? '#4A3D35' : '#D4C8B8';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
                 title="删除"
               >
                 <Trash2 className="w-4 h-4" />
@@ -282,16 +337,40 @@ export default function NoteDetailPanel({
 
       {/* 快速跳转导航区域 */}
       {(note.chapter_index !== null && note.chapter_index !== undefined) && (
-        <div className="p-3 border-b border-gray-200 bg-gray-50">
+        <div 
+          className="p-3 border-b"
+          style={{
+            backgroundColor: isDark ? '#3A302A' : '#EAE4D8',
+            borderColor: isDark ? '#4A3D35' : '#D4C8B8'
+          }}
+        >
           <div className="flex items-center gap-2">
-            <Navigation className="w-4 h-4 text-gray-500" />
-            <span className="text-xs font-medium text-gray-700">快速跳转</span>
+            <Navigation 
+              className="w-4 h-4"
+              style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+            />
+            <span 
+              className="text-xs font-medium"
+              style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+            >
+              快速跳转
+            </span>
           </div>
           <div className="flex gap-2 mt-2">
             {onJumpToChapter && note.chapter_index !== null && (
               <button
                 onClick={() => onJumpToChapter(note.chapter_index!)}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-md transition-colors"
+                style={{
+                  backgroundColor: isDark ? '#8B7355' : '#A67C52',
+                  color: '#FFFFFF'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = isDark ? '#9A8164' : '#B58A61';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = isDark ? '#8B7355' : '#A67C52';
+                }}
                 title="跳转到章节"
               >
                 <Navigation className="w-3 h-3" />
@@ -301,7 +380,17 @@ export default function NoteDetailPanel({
             {onJumpToNote && (
               <button
                 onClick={() => onJumpToNote(note.id)}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-md transition-colors"
+                style={{
+                  backgroundColor: isDark ? '#8B7355' : '#A67C52',
+                  color: '#FFFFFF'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = isDark ? '#9A8164' : '#B58A61';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = isDark ? '#8B7355' : '#A67C52';
+                }}
                 title="在文中定位"
               >
                 <MapPin className="w-3 h-3" />
@@ -317,25 +406,41 @@ export default function NoteDetailPanel({
         {isEditing ? (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label 
+                className="block text-sm font-medium mb-1"
+                style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+              >
                 标题
               </label>
               <input
                 type="text"
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: isDark ? '#3A302A' : '#FFFFFF',
+                  borderColor: isDark ? '#4A3D35' : '#D4C8B8',
+                  color: isDark ? '#E8DDD0' : '#3E3530'
+                }}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label 
+                className="block text-sm font-medium mb-1"
+                style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+              >
                 内容
               </label>
               <textarea
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
                 rows={8}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: isDark ? '#3A302A' : '#FFFFFF',
+                  borderColor: isDark ? '#4A3D35' : '#D4C8B8',
+                  color: isDark ? '#E8DDD0' : '#3E3530'
+                }}
               />
             </div>
             <div>
@@ -391,7 +496,12 @@ export default function NoteDetailPanel({
         ) : (
           <div className="space-y-4">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{note.title}</h2>
+              <h2 
+                className="text-xl font-bold"
+                style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+              >
+                {note.title}
+              </h2>
               {note.category_name && (
                 <span
                   className="inline-block mt-2 px-2 py-1 text-xs rounded"
@@ -418,7 +528,10 @@ export default function NoteDetailPanel({
               </div>
             )}
             <div>
-              <p className="text-gray-700 whitespace-pre-wrap">
+              <p 
+                className="whitespace-pre-wrap"
+                style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+              >
                 {note.content || "无内容"}
               </p>
             </div>

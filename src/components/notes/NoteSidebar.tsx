@@ -5,6 +5,7 @@ import { Search, Plus, Filter, X, Trash2, ChevronDown, ChevronUp, ArrowUpDown } 
 import TrashView from "./TrashView";
 
 type TabType = 'notes' | 'trash';
+type ThemeMode = 'light' | 'dark';
 
 interface NoteSidebarProps {
   selectedNoteId: number | null;
@@ -12,6 +13,7 @@ interface NoteSidebarProps {
   onCreateNote: () => void;
   currentBookId?: number | null;
   currentChapterIndex?: number | null;
+  theme?: ThemeMode;
 }
 
 export default function NoteSidebar({
@@ -19,8 +21,10 @@ export default function NoteSidebar({
   onSelectNote,
   onCreateNote,
   currentBookId,
+  theme = 'light',
   // currentChapterIndex,
 }: NoteSidebarProps) {
+  const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState<TabType>('notes');
   const [notes, setNotes] = useState<Note[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -126,19 +130,43 @@ export default function NoteSidebar({
 
   if (activeTab === 'trash') {
     return (
-      <div className="h-full flex flex-col bg-gray-50 border-r border-gray-200">
+      <div 
+        className="h-full flex flex-col border-r"
+        style={{
+          backgroundColor: isDark ? '#3A302A' : '#EAE4D8',
+          borderColor: isDark ? '#4A3D35' : '#D4C8B8'
+        }}
+      >
         {/* 头部 */}
-        <div className="p-4 border-b border-gray-200 bg-white">
+        <div 
+          className="p-4 border-b"
+          style={{
+            backgroundColor: isDark ? '#2D2520' : '#F5F1E8',
+            borderColor: isDark ? '#4A3D35' : '#D4C8B8'
+          }}
+        >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setActiveTab('notes')}
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className="text-sm"
+                style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = isDark ? '#E8DDD0' : '#3E3530';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = isDark ? '#B8A895' : '#6B5D52';
+                }}
               >
                 笔记
               </button>
-              <span className="text-gray-400">/</span>
-              <span className="text-sm font-semibold text-gray-900">回收站</span>
+              <span style={{ color: isDark ? '#B8A895' : '#6B5D52' }}>/</span>
+              <span 
+                className="text-sm font-semibold"
+                style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+              >
+                回收站
+              </span>
             </div>
           </div>
         </div>
@@ -155,16 +183,40 @@ export default function NoteSidebar({
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 border-r border-gray-200">
+    <div 
+      className="h-full flex flex-col border-r"
+      style={{
+        backgroundColor: isDark ? '#3A302A' : '#EAE4D8',
+        borderColor: isDark ? '#4A3D35' : '#D4C8B8'
+      }}
+    >
       {/* 头部 */}
-      <div className="p-4 border-b border-gray-200 bg-white">
+      <div 
+        className="p-4 border-b"
+        style={{
+          backgroundColor: isDark ? '#2D2520' : '#F5F1E8',
+          borderColor: isDark ? '#4A3D35' : '#D4C8B8'
+        }}
+      >
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-900">笔记</span>
-            <span className="text-gray-400">/</span>
+            <span 
+              className="text-sm font-semibold"
+              style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+            >
+              笔记
+            </span>
+            <span style={{ color: isDark ? '#B8A895' : '#6B5D52' }}>/</span>
             <button
               onClick={() => setActiveTab('trash')}
-              className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+              className="text-sm flex items-center gap-1"
+              style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = isDark ? '#E8DDD0' : '#3E3530';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = isDark ? '#B8A895' : '#6B5D52';
+              }}
             >
               <Trash2 className="w-4 h-4" />
               回收站
@@ -172,7 +224,16 @@ export default function NoteSidebar({
           </div>
           <button
             onClick={onCreateNote}
-            className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+            className="p-1.5 rounded-md transition-colors"
+            style={{
+              color: isDark ? '#D4A574' : '#A67C52'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = isDark ? '#4A3D35' : '#D4C8B8';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
             title="创建新笔记"
           >
             <Plus className="w-5 h-5" />
@@ -181,13 +242,21 @@ export default function NoteSidebar({
 
         {/* 搜索框 */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search 
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
+            style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+          />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索笔记..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2"
+            style={{
+              backgroundColor: isDark ? '#2D2520' : '#FFFFFF',
+              borderColor: isDark ? '#4A3D35' : '#D4C8B8',
+              color: isDark ? '#E8DDD0' : '#3E3530'
+            }}
           />
         </div>
 
@@ -350,10 +419,13 @@ export default function NoteSidebar({
         )}
       </div>
 
-      {/* 笔记列表 */}
+        {/* 笔记列表 */}
       <div className="flex-1 overflow-y-auto">
         {filteredNotes.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">
+          <div 
+            className="p-8 text-center"
+            style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+          >
             <p className="text-sm">暂无笔记</p>
           </div>
         ) : (
@@ -362,24 +434,47 @@ export default function NoteSidebar({
               <div
                 key={note.id}
                 onClick={() => onSelectNote(note)}
-                className={`p-3 mb-2 rounded-lg cursor-pointer transition-all ${
-                  selectedNoteId === note.id
-                    ? "bg-indigo-50 border-2 border-indigo-500"
-                    : "bg-white border border-gray-200 hover:border-indigo-300 hover:shadow-sm"
-                }`}
+                className="p-3 mb-2 rounded-lg cursor-pointer transition-all border-2"
+                style={{
+                  backgroundColor: selectedNoteId === note.id
+                    ? (isDark ? '#4A3D35' : '#F5F1E8')
+                    : (isDark ? '#2D2520' : '#FFFFFF'),
+                  borderColor: selectedNoteId === note.id
+                    ? (isDark ? '#8B7355' : '#A67C52')
+                    : (isDark ? '#4A3D35' : '#D4C8B8')
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedNoteId !== note.id) {
+                    e.currentTarget.style.borderColor = isDark ? '#8B7355' : '#A67C52';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedNoteId !== note.id) {
+                    e.currentTarget.style.borderColor = isDark ? '#4A3D35' : '#D4C8B8';
+                  }
+                }}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-gray-900 truncate">
+                    <h3 
+                      className="text-sm font-medium truncate"
+                      style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+                    >
                       {note.title}
                     </h3>
                     {note.content && (
-                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                      <p 
+                        className="text-xs mt-1 line-clamp-2"
+                        style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+                      >
                         {note.content}
                       </p>
                     )}
                     {note.highlighted_text && (
-                      <p className="text-xs text-gray-400 mt-1 italic line-clamp-1">
+                      <p 
+                        className="text-xs mt-1 italic line-clamp-1"
+                        style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+                      >
                         "{note.highlighted_text}"
                       </p>
                     )}
@@ -412,7 +507,10 @@ export default function NoteSidebar({
                     </span>
                   ))}
                 </div>
-                <div className="text-xs text-gray-400 mt-1">
+                <div 
+                  className="text-xs mt-1"
+                  style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+                >
                   {new Date(note.created_at).toLocaleDateString("zh-CN")}
                 </div>
               </div>

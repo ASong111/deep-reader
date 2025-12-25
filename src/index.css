@@ -6,20 +6,35 @@
 
 /* 确保这三行位于所有自定义 CSS 的最顶端 */
 
-/* 基础样式重置 - 确保全屏布局正常工作 */
-html, body {
+/* 基础样式重置 - 彻底消除间隙 */
+* {
     margin: 0;
     padding: 0;
-    height: 100%;
-    width: 100%;
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100vh;
+    width: 100vw;
     overflow: hidden;
-    background-color: #171717; /* neutral-900 */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
 }
 
 #root {
-    height: 100%;
-    width: 100%;
-    background-color: #171717; /* neutral-900 */
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
 }
 
 /* 在 CPU 高负载或用户偏好减少动画时禁用过渡 */

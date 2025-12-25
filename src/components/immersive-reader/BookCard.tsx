@@ -1,26 +1,40 @@
 import { memo } from 'react';
 import { BookOpen } from 'lucide-react';
-import { Book } from './types';
+import { Book, ThemeMode } from './types';
 
 interface BookCardProps {
   book: Book;
   onClick: (book: Book) => void;
+  theme?: ThemeMode;
 }
 
-const BookCard = memo(({ book, onClick }: BookCardProps) => {
+const BookCard = memo(({ book, onClick, theme = 'light' }: BookCardProps) => {
+  const isDark = theme === 'dark';
+  
   return (
     <div
       onClick={() => onClick(book)}
-      // 移除 transform hover:scale-105，改用更轻量的效果
-      className="bg-neutral-800 rounded-xl overflow-hidden cursor-pointer transition-shadow duration-200 shadow-lg hover:shadow-2xl border border-neutral-700 hover:border-blue-500"
+      className="rounded-xl overflow-hidden cursor-pointer transition-all duration-200 shadow-lg border"
+      style={{
+        backgroundColor: isDark ? '#3A302A' : '#EAE4D8',
+        borderColor: isDark ? '#4A3D35' : '#D4C8B8'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.14)';
+        e.currentTarget.style.borderColor = isDark ? '#8B7355' : '#A67C52';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+        e.currentTarget.style.borderColor = isDark ? '#4A3D35' : '#D4C8B8';
+      }}
     >
       {/* Book Cover */}
-      <div className={`h-64 ${book.coverImage ? '' : book.coverColor} flex items-center justify-center relative overflow-hidden`}>
+      <div className={`h-64 ${book.coverColor} flex items-center justify-center relative overflow-hidden`}>
         {book.coverImage ? (
           <img 
             src={book.coverImage} 
             alt={book.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover absolute inset-0"
           />
         ) : (
           <>
@@ -32,20 +46,40 @@ const BookCard = memo(({ book, onClick }: BookCardProps) => {
 
       {/* Book Info */}
       <div className="p-5">
-        <h3 className="text-lg font-bold text-white mb-1 truncate" title={book.title}>
+        <h3 
+          className="text-lg font-bold mb-1 truncate" 
+          title={book.title}
+          style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+        >
           {book.title}
         </h3>
-        <p className="text-sm text-neutral-400 mb-4">{book.author}</p>
+        <p 
+          className="text-sm mb-4"
+          style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+        >
+          {book.author}
+        </p>
 
         {/* Progress Bar */}
         <div className="space-y-1">
-          <div className="flex justify-between items-center text-xs text-neutral-500">
+          <div 
+            className="flex justify-between items-center text-xs"
+            style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+          >
             <span>{book.progress}% Read</span>
           </div>
-          <div className="w-full h-2 bg-neutral-700 rounded-full overflow-hidden">
+          <div 
+            className="w-full h-2 rounded-full overflow-hidden"
+            style={{ backgroundColor: isDark ? '#4A3D35' : '#D4C8B8' }}
+          >
             <div
-              className="h-full bg-gradient-to-r from-green-500 to-green-400 transition-all duration-500"
-              style={{ width: `${book.progress}%` }}
+              className="h-full transition-all duration-500"
+              style={{ 
+                width: `${book.progress}%`,
+                background: isDark 
+                  ? 'linear-gradient(to right, #8B7355, #A67C52)' 
+                  : 'linear-gradient(to right, #A67C52, #C9A06E)'
+              }}
             ></div>
           </div>
         </div>

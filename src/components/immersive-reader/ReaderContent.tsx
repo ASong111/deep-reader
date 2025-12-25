@@ -29,9 +29,10 @@ const MemoizedContent = memo<{
   return (
     <div
       ref={contentRef}
-      className={`leading-relaxed reader-content ${
-        isDark ? 'text-neutral-300' : 'text-neutral-700'
-      }`}
+      className="leading-relaxed reader-content"
+      style={{
+        color: isDark ? '#E8DDD0' : '#3E3530'
+      }}
       dangerouslySetInnerHTML={{ __html: htmlContent }}
       onClick={(e) => {
         const target = e.target as HTMLElement;
@@ -61,6 +62,14 @@ const ReaderContent = memo(({
   hasNextChapter = false
 }: ReaderContentProps) => {
   const isDark = theme === 'dark';
+  
+  // #region agent log
+  useEffect(() => {
+    const sectionEl = document.querySelector('section.w-full.h-full.overflow-y-auto');
+    const sectionBg = sectionEl ? window.getComputedStyle(sectionEl).backgroundColor : 'not-found';
+    fetch('http://127.0.0.1:7242/ingest/74ed1feb-fd97-42b7-bca9-db5b7412fc2c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ReaderContent.tsx:useEffect',message:'ReaderContent theme updated',data:{theme:theme,isDark:isDark,expectedBg:isDark?'#2D2520':'#F5F1E8',actualSectionBg:sectionBg},timestamp:Date.now(),sessionId:'debug-session',runId:'reader-theme',hypothesisId:'H3'})}).catch(()=>{});
+  }, [theme, isDark]);
+  // #endregion
   const contentRef = useRef<HTMLDivElement>(null);
   const [selectedText, setSelectedText] = useState<string>("");
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null);
@@ -454,17 +463,20 @@ const ReaderContent = memo(({
   }, [selectedText, onTextSelection, handleClearSelection]);
 
   return (
-    <section className={`w-full h-full overflow-y-auto transition-colors duration-300 relative ${
-      isDark ? 'bg-neutral-900' : 'bg-neutral-50'
-    }`}>
+    <section 
+      className="w-full h-full overflow-y-auto relative"
+      style={{
+        backgroundColor: isDark ? '#2D2520' : '#F5F1E8'
+      }}
+    >
       {/* Theme Toggle Button */}
       <button
         onClick={onThemeToggle}
-        className={`fixed bottom-8 right-8 p-4 rounded-full shadow-2xl transition-all duration-300 z-40 hover:scale-110 ${
-          isDark 
-            ? 'bg-yellow-500 hover:bg-yellow-400 text-neutral-900' 
-            : 'bg-neutral-800 hover:bg-neutral-700 text-white'
-        }`}
+        className="fixed bottom-8 right-8 p-4 rounded-full shadow-2xl transition-all duration-300 z-40 hover:scale-110"
+        style={{
+          backgroundColor: isDark ? '#D4A574' : '#5A4A3A',
+          color: isDark ? '#2D2520' : '#F5F1E8'
+        }}
         title={isDark ? '切换到日间模式' : '切换到夜间模式'}
       >
         {isDark ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
@@ -520,14 +532,20 @@ const ReaderContent = memo(({
         }`}>
           {/* Chapter Title */}
           <div className="mb-8">
-            <h1 className={`text-4xl font-bold mb-2 ${
-              isDark ? 'text-white' : 'text-neutral-900'
-            }`}>
+            <h1 
+              className="text-4xl font-bold mb-2"
+              style={{
+                color: isDark ? '#E8DDD0' : '#3E3530'
+              }}
+            >
               {chapter.title}
             </h1>
-            <div className={`h-1 w-20 rounded ${
-              isDark ? 'bg-blue-400' : 'bg-blue-600'
-            }`}></div>
+            <div 
+              className="h-1 w-20 rounded"
+              style={{
+                backgroundColor: isDark ? '#8B7355' : '#A67C52'
+              }}
+            ></div>
           </div>
 
           {/* Chapter Content - 使用MemoizedContent防止DOM节点被替换 */}
@@ -542,15 +560,15 @@ const ReaderContent = memo(({
         {/* 下一章按钮 */}
         {hasNextChapter && onNextChapter && (
           <div className="mt-16 mb-12 flex justify-center border-t pt-8" style={{
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+            borderColor: isDark ? 'rgba(184, 168, 149, 0.2)' : 'rgba(107, 93, 82, 0.2)'
           }}>
             <button
               onClick={onNextChapter}
-              className={`group flex items-center gap-2 px-8 py-3 rounded-lg font-medium transition-all duration-200 ${
-                isDark
-                  ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg hover:shadow-xl hover:scale-105'
-                  : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md hover:shadow-lg hover:scale-105'
-              } active:scale-95`}
+              className="group flex items-center gap-2 px-8 py-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: isDark ? '#8B7355' : '#A67C52',
+                color: isDark ? '#F5F1E8' : '#FFFFFF'
+              }}
             >
               <span>下一章</span>
               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
