@@ -288,7 +288,7 @@ const ReaderContent = memo(({
           } catch (_err) {
           }
         }
-      }, 100);
+      }, 50);
       
       const isCollapsed = range.collapsed;      // CSS样式已在组件挂载时注入，这里不再重复注入
       // 只需确保选择范围保持活动状态
@@ -325,8 +325,8 @@ const ReaderContent = memo(({
             if (frameCount % 10 === 1 || selType === 'Caret' || selType === 'None') {
             }
             
-            // 只监控500ms（足够长以防止初始的Caret转换）
-            if (elapsed > 500) {
+            // 只监控200ms（足够长以防止初始的Caret转换）
+            if (elapsed > 200) {
               selectionMonitorRef.current = null;
               return;
             }
@@ -358,14 +358,14 @@ const ReaderContent = memo(({
         savedRangeRef.current = null;
       }
       
-      // 延迟handleSelection到RAF监控结束后（600ms），避免React重新渲染导致Range失效
+      // 延迟handleSelection到RAF监控结束后（150ms），避免React重新渲染导致Range失效
       if (selectionTimeout) {
         clearTimeout(selectionTimeout);
       }
       selectionTimeout = window.setTimeout(() => {
         handleSelection();
         selectionTimeout = null;
-      }, 600);
+      }, 150);
     };
 
     // 添加mousedown监听用于调试
