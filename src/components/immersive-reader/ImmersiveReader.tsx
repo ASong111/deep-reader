@@ -27,13 +27,16 @@ interface BackendChapterInfo {
   id: string;
 }
 
-const ImmersiveReader = () => {
+interface ImmersiveReaderProps {
+  theme: ThemeMode;
+}
+
+const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
   const { toasts, removeToast, showSuccess } = useToastManager();
   const [currentView, setCurrentView] = useState<ViewMode>('library');
   const [books, setBooks] = useState<Book[]>([]);
   const [activeBook, setActiveBook] = useState<Book | null>(null);
   const [activeChapterIndex, setActiveChapterIndex] = useState<number>(0);
-  const [readerTheme, setReaderTheme] = useState<ThemeMode>('light');
   const [loading, setLoading] = useState(false);
 
   // 笔记相关状态
@@ -108,91 +111,6 @@ const ImmersiveReader = () => {
       unlistenPromise.then((unlisten) => unlisten());
     };
   }, [loadBooks]);
-
-  // 主题切换时更新背景色（包括初始挂载）
-  useEffect(() => {
-    const bgColor = readerTheme === 'dark' ? '#2D2520' : '#F5F1E8';
-    
-    // 更新全局背景色，使用 setProperty 强制更新
-    document.documentElement.style.setProperty('background-color', bgColor, 'important');
-    document.body.style.setProperty('background-color', bgColor, 'important');
-    const rootEl = document.getElementById('root');
-    if (rootEl) {
-      rootEl.style.setProperty('background-color', bgColor, 'important');
-    }
-    
-    // #region agent log
-    const checkMismatchedColors = () => {
-      const expectedMainBg = readerTheme === 'dark' ? 'rgb(45, 37, 32)' : 'rgb(245, 241, 232)';
-      const mismatchedElements: any[] = [];
-      
-      // 检查关键元素
-      const keyElements = [
-        { el: document.documentElement, name: 'HTML' },
-        { el: document.body, name: 'BODY' },
-        { el: document.getElementById('root'), name: '#root' },
-        { el: document.querySelector('main'), name: 'MAIN' }
-      ];
-      
-      keyElements.forEach(({ el, name }) => {
-        if (el) {
-          const bg = window.getComputedStyle(el).backgroundColor;
-          if (bg !== expectedMainBg && bg !== 'rgba(0, 0, 0, 0)') {
-            mismatchedElements.push({ name, bg, expected: expectedMainBg });
-          }
-        }
-      });
-      
-      // 查找所有大元素（>200x200）背景色与主题不符的
-      const allElements = document.querySelectorAll('*');
-      allElements.forEach((el: any) => {
-        const rect = el.getBoundingClientRect();
-        if (rect.width > 200 && rect.height > 200) {
-          const styles = window.getComputedStyle(el);
-          const bg = styles.backgroundColor;
-          
-          // 检查背景色是否与主题不符
-          if (bg !== expectedMainBg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
-            // 检查是否是错误的主题色
-            const wrongLightBg = 'rgb(245, 241, 232)';
-            const wrongDarkBg = 'rgb(45, 37, 32)';
-            const isWrongTheme = (readerTheme === 'dark' && bg === wrongLightBg) || (readerTheme === 'light' && bg === wrongDarkBg);
-            
-            if (isWrongTheme || Math.abs(rect.width * rect.height) > 100000) {
-              mismatchedElements.push({
-                tag: el.tagName,
-                className: el.className?.substring(0, 40) || 'none',
-                id: el.id || 'none',
-                bg: bg,
-                expected: expectedMainBg,
-                isWrongTheme: isWrongTheme,
-                size: `${Math.round(rect.width)}x${Math.round(rect.height)}`
-              });
-            }
-          }
-        }
-      });
-      
-      if (mismatchedElements.length > 0) {
-        fetch('http://127.0.0.1:7242/ingest/74ed1feb-fd97-42b7-bca9-db5b7412fc2c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ImmersiveReader.tsx:checkMismatchedColors',message:'Found mismatched background colors',data:{readerTheme:readerTheme,expectedMainBg:expectedMainBg,mismatchedCount:mismatchedElements.length,mismatched:mismatchedElements},timestamp:Date.now(),sessionId:'debug-session',runId:'color-mismatch',hypothesisId:'H2'})}).catch(()=>{});
-      }
-    };
-    
-    setTimeout(checkMismatchedColors, 100);
-    
-    // 监听窗口调整大小
-    const handleResize = () => {
-      fetch('http://127.0.0.1:7242/ingest/74ed1feb-fd97-42b7-bca9-db5b7412fc2c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ImmersiveReader.tsx:window:resize',message:'Window resized',data:{readerTheme:readerTheme,width:window.innerWidth,height:window.innerHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'resize-check',hypothesisId:'H4'})}).catch(()=>{});
-      setTimeout(checkMismatchedColors, 50);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-    // #endregion
-  }, [readerTheme, currentView]);
 
 
   // 导入书籍功能
@@ -321,29 +239,6 @@ const ImmersiveReader = () => {
       handleChapterClick(nextIndex);
     }
   }, [activeBook, activeChapterIndex, handleChapterClick]);
-
-  // 切换阅读主题
-  const toggleReaderTheme = () => {
-    // #region agent log
-    const currentTheme = readerTheme;
-    const htmlBg = window.getComputedStyle(document.documentElement).backgroundColor;
-    const bodyBg = window.getComputedStyle(document.body).backgroundColor;
-    const rootEl = document.getElementById('root');
-    const rootBg = rootEl ? window.getComputedStyle(rootEl).backgroundColor : 'null';
-    fetch('http://127.0.0.1:7242/ingest/74ed1feb-fd97-42b7-bca9-db5b7412fc2c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ImmersiveReader.tsx:toggleReaderTheme:BEFORE',message:'Theme toggle start',data:{currentTheme:currentTheme,htmlBg:htmlBg,bodyBg:bodyBg,rootBg:rootBg},timestamp:Date.now(),sessionId:'debug-session',runId:'theme-check',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
-    setReaderTheme(prev => prev === 'light' ? 'dark' : 'light');
-    // #region agent log
-    setTimeout(() => {
-      const newTheme = readerTheme === 'light' ? 'dark' : 'light';
-      const htmlBgAfter = window.getComputedStyle(document.documentElement).backgroundColor;
-      const bodyBgAfter = window.getComputedStyle(document.body).backgroundColor;
-      const rootElAfter = document.getElementById('root');
-      const rootBgAfter = rootElAfter ? window.getComputedStyle(rootElAfter).backgroundColor : 'null';
-      fetch('http://127.0.0.1:7242/ingest/74ed1feb-fd97-42b7-bca9-db5b7412fc2c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ImmersiveReader.tsx:toggleReaderTheme:AFTER',message:'Theme toggle complete',data:{newTheme:newTheme,htmlBgAfter:htmlBgAfter,bodyBgAfter:bodyBgAfter,rootBgAfter:rootBgAfter},timestamp:Date.now(),sessionId:'debug-session',runId:'theme-check',hypothesisId:'H1'})}).catch(()=>{});
-    }, 100);
-    // #endregion
-  };
 
   // 加载分类和标签
   const loadCategoriesAndTags = useCallback(async () => {
@@ -498,7 +393,7 @@ const ImmersiveReader = () => {
           bottom: 0,
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: readerTheme === 'dark' ? '#2D2520' : '#F5F1E8',
+          backgroundColor: theme === 'dark' ? '#2D2520' : '#F5F1E8',
           margin: 0,
           padding: 0,
           overflow: 'hidden'
@@ -508,19 +403,19 @@ const ImmersiveReader = () => {
           <header 
             className="h-16 border-b flex items-center justify-between px-8 shadow-lg"
             style={{
-              backgroundColor: readerTheme === 'dark' ? '#3A302A' : '#EAE4D8',
-              borderColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8'
+              backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+              borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
             }}
           >
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-3">
                 <BarChart3 
                   className="w-8 h-8"
-                  style={{ color: readerTheme === 'dark' ? '#D4A574' : '#A67C52' }}
+                  style={{ color: theme === 'dark' ? '#D4A574' : '#A67C52' }}
                 />
                 <h1 
                   className="text-2xl font-bold"
-                  style={{ color: readerTheme === 'dark' ? '#E8DDD0' : '#3E3530' }}
+                  style={{ color: theme === 'dark' ? '#E8DDD0' : '#3E3530' }}
                 >
                   数据分析
                 </h1>
@@ -530,16 +425,16 @@ const ImmersiveReader = () => {
                   onClick={() => setCurrentView('library')}
                   className="px-4 py-2 rounded-lg transition-colors font-medium flex items-center gap-2"
                   style={{
-                    color: readerTheme === 'dark' ? '#B8A895' : '#6B5D52',
+                    color: theme === 'dark' ? '#B8A895' : '#6B5D52',
                     backgroundColor: 'transparent'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8';
-                    e.currentTarget.style.color = readerTheme === 'dark' ? '#E8DDD0' : '#3E3530';
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
+                    e.currentTarget.style.color = theme === 'dark' ? '#E8DDD0' : '#3E3530';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = readerTheme === 'dark' ? '#B8A895' : '#6B5D52';
+                    e.currentTarget.style.color = theme === 'dark' ? '#B8A895' : '#6B5D52';
                   }}
                 >
                   <BookOpen className="w-4 h-4" />
@@ -549,14 +444,14 @@ const ImmersiveReader = () => {
                   onClick={() => setCurrentView('analytics')}
                   className="px-4 py-2 rounded-lg transition-colors font-medium flex items-center gap-2"
                   style={{
-                    color: readerTheme === 'dark' ? '#E8DDD0' : '#3E3530',
-                    backgroundColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8'
+                    color: theme === 'dark' ? '#E8DDD0' : '#3E3530',
+                    backgroundColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#524439' : '#C9BDAD';
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#524439' : '#C9BDAD';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8';
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
                   }}
                 >
                   <BarChart3 className="w-4 h-4" />
@@ -570,7 +465,7 @@ const ImmersiveReader = () => {
           <main 
             className="flex-1 overflow-hidden"
             style={{
-              backgroundColor: readerTheme === 'dark' ? '#2D2520' : '#F5F1E8'
+              backgroundColor: theme === 'dark' ? '#2D2520' : '#F5F1E8'
             }}
           >
             <AnalyticsView />
@@ -592,7 +487,7 @@ const ImmersiveReader = () => {
           bottom: 0,
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: readerTheme === 'dark' ? '#2D2520' : '#F5F1E8',
+          backgroundColor: theme === 'dark' ? '#2D2520' : '#F5F1E8',
           margin: 0,
           padding: 0,
           overflow: 'hidden'
@@ -602,19 +497,19 @@ const ImmersiveReader = () => {
           <header 
             className="h-16 border-b flex items-center justify-between px-8 shadow-lg"
             style={{
-              backgroundColor: readerTheme === 'dark' ? '#3A302A' : '#EAE4D8',
-              borderColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8'
+              backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+              borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
             }}
           >
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-3">
                 <BookOpen 
                   className="w-8 h-8"
-                  style={{ color: readerTheme === 'dark' ? '#D4A574' : '#A67C52' }}
+                  style={{ color: theme === 'dark' ? '#D4A574' : '#A67C52' }}
                 />
                 <h1 
                   className="text-2xl font-bold"
-                  style={{ color: readerTheme === 'dark' ? '#E8DDD0' : '#3E3530' }}
+                  style={{ color: theme === 'dark' ? '#E8DDD0' : '#3E3530' }}
                 >
                   图书馆
                 </h1>
@@ -624,14 +519,14 @@ const ImmersiveReader = () => {
                   onClick={() => setCurrentView('library')}
                   className="px-4 py-2 rounded-lg transition-colors font-medium"
                   style={{
-                    color: readerTheme === 'dark' ? '#E8DDD0' : '#3E3530',
-                    backgroundColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8'
+                    color: theme === 'dark' ? '#E8DDD0' : '#3E3530',
+                    backgroundColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#524439' : '#C9BDAD';
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#524439' : '#C9BDAD';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8';
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
                   }}
                 >
                   图书
@@ -640,16 +535,16 @@ const ImmersiveReader = () => {
                   onClick={() => setCurrentView('analytics')}
                   className="px-4 py-2 rounded-lg transition-colors font-medium flex items-center gap-2"
                   style={{
-                    color: readerTheme === 'dark' ? '#B8A895' : '#6B5D52',
+                    color: theme === 'dark' ? '#B8A895' : '#6B5D52',
                     backgroundColor: 'transparent'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8';
-                    e.currentTarget.style.color = readerTheme === 'dark' ? '#E8DDD0' : '#3E3530';
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
+                    e.currentTarget.style.color = theme === 'dark' ? '#E8DDD0' : '#3E3530';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = readerTheme === 'dark' ? '#B8A895' : '#6B5D52';
+                    e.currentTarget.style.color = theme === 'dark' ? '#B8A895' : '#6B5D52';
                   }}
                 >
                   <BarChart3 className="w-4 h-4" />
@@ -664,17 +559,17 @@ const ImmersiveReader = () => {
                 loading ? 'opacity-50 cursor-wait' : ''
               }`}
               style={{
-                backgroundColor: readerTheme === 'dark' ? '#8B7355' : '#A67C52',
+                backgroundColor: theme === 'dark' ? '#8B7355' : '#A67C52',
                 color: '#FFFFFF'
               }}
               onMouseEnter={(e) => {
                 if (!loading) {
-                  e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#9A8164' : '#B58A61';
+                  e.currentTarget.style.backgroundColor = theme === 'dark' ? '#9A8164' : '#B58A61';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!loading) {
-                  e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#8B7355' : '#A67C52';
+                  e.currentTarget.style.backgroundColor = theme === 'dark' ? '#8B7355' : '#A67C52';
                 }
               }}
             >
@@ -687,13 +582,13 @@ const ImmersiveReader = () => {
           <main 
             className="flex-1 overflow-y-auto p-8"
             style={{
-              backgroundColor: readerTheme === 'dark' ? '#2D2520' : '#F5F1E8'
+              backgroundColor: theme === 'dark' ? '#2D2520' : '#F5F1E8'
             }}
           >
             {books.length === 0 ? (
               <div 
                 className="flex items-center justify-center h-full"
-                style={{ color: readerTheme === 'dark' ? '#B8A895' : '#6B5D52' }}
+                style={{ color: theme === 'dark' ? '#B8A895' : '#6B5D52' }}
               >
                 <p>暂无书籍，请点击上方按钮导入书籍</p>
               </div>
@@ -704,7 +599,7 @@ const ImmersiveReader = () => {
                     key={book.id} 
                     book={book} 
                     onClick={handleBookClick}
-                    theme={readerTheme}
+                    theme={theme}
                   />
                 ))}
               </div>
@@ -733,7 +628,7 @@ const ImmersiveReader = () => {
             bottom: 0,
             display: 'flex',
             flexDirection: 'column',
-            backgroundColor: readerTheme === 'dark' ? '#2D2520' : '#F5F1E8',
+            backgroundColor: theme === 'dark' ? '#2D2520' : '#F5F1E8',
             margin: 0,
             padding: 0,
             overflow: 'hidden'
@@ -742,22 +637,22 @@ const ImmersiveReader = () => {
           <header 
             className="h-16 border-b flex items-center px-8 shadow-lg"
             style={{
-              backgroundColor: readerTheme === 'dark' ? '#3A302A' : '#EAE4D8',
-              borderColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8'
+              backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+              borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
             }}
           >
             <button
               onClick={handleBackToLibrary}
               className="flex items-center gap-2 px-4 py-2 font-medium rounded-lg transition-colors"
               style={{
-                backgroundColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8',
-                color: readerTheme === 'dark' ? '#E8DDD0' : '#3E3530'
+                backgroundColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8',
+                color: theme === 'dark' ? '#E8DDD0' : '#3E3530'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#524439' : '#C9BDAD';
+                e.currentTarget.style.backgroundColor = theme === 'dark' ? '#524439' : '#C9BDAD';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8';
+                e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
               }}
             >
               <ArrowLeft className="w-5 h-5" />
@@ -766,13 +661,13 @@ const ImmersiveReader = () => {
             <div className="ml-8 flex-1">
               <h1 
                 className="text-xl font-bold"
-                style={{ color: readerTheme === 'dark' ? '#E8DDD0' : '#3E3530' }}
+                style={{ color: theme === 'dark' ? '#E8DDD0' : '#3E3530' }}
               >
                 {activeBook.title}
               </h1>
               <p 
                 className="text-sm"
-                style={{ color: readerTheme === 'dark' ? '#B8A895' : '#6B5D52' }}
+                style={{ color: theme === 'dark' ? '#B8A895' : '#6B5D52' }}
               >
                 {activeBook.author}
               </p>
@@ -780,7 +675,7 @@ const ImmersiveReader = () => {
           </header>
           <div 
             className="flex items-center justify-center flex-1"
-            style={{ color: readerTheme === 'dark' ? '#B8A895' : '#6B5D52' }}
+            style={{ color: theme === 'dark' ? '#B8A895' : '#6B5D52' }}
           >
             <p>此书籍没有可用章节</p>
           </div>
@@ -800,7 +695,7 @@ const ImmersiveReader = () => {
           bottom: 0,
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: readerTheme === 'dark' ? '#2D2520' : '#F5F1E8',
+          backgroundColor: theme === 'dark' ? '#2D2520' : '#F5F1E8',
           margin: 0,
           padding: 0,
           overflow: 'hidden'
@@ -810,22 +705,22 @@ const ImmersiveReader = () => {
         <header 
           className="h-16 border-b flex items-center px-8 shadow-lg"
           style={{
-            backgroundColor: readerTheme === 'dark' ? '#3A302A' : '#EAE4D8',
-            borderColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8'
+            backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+            borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
           }}
         >
           <button
             onClick={handleBackToLibrary}
             className="flex items-center gap-2 px-4 py-2 font-medium rounded-lg transition-colors"
             style={{
-              backgroundColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8',
-              color: readerTheme === 'dark' ? '#E8DDD0' : '#3E3530'
+              backgroundColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8',
+              color: theme === 'dark' ? '#E8DDD0' : '#3E3530'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#524439' : '#C9BDAD';
+              e.currentTarget.style.backgroundColor = theme === 'dark' ? '#524439' : '#C9BDAD';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8';
+              e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
             }}
           >
             <ArrowLeft className="w-5 h-5" />
@@ -834,13 +729,13 @@ const ImmersiveReader = () => {
           <div className="ml-8 flex-1">
             <h1 
               className="text-xl font-bold"
-              style={{ color: readerTheme === 'dark' ? '#E8DDD0' : '#3E3530' }}
+              style={{ color: theme === 'dark' ? '#E8DDD0' : '#3E3530' }}
             >
               {activeBook.title}
             </h1>
             <p 
               className="text-sm"
-              style={{ color: readerTheme === 'dark' ? '#B8A895' : '#6B5D52' }}
+              style={{ color: theme === 'dark' ? '#B8A895' : '#6B5D52' }}
             >
               {activeBook.author}
             </p>
@@ -851,15 +746,15 @@ const ImmersiveReader = () => {
         <main 
           className="flex flex-1 overflow-hidden"
           style={{
-            backgroundColor: readerTheme === 'dark' ? '#2D2520' : '#F5F1E8'
+            backgroundColor: theme === 'dark' ? '#2D2520' : '#F5F1E8'
           }}
         >
           {/* 左侧：笔记侧边栏 (20%) */}
           <div 
             className="w-1/5 border-r"
             style={{
-              backgroundColor: readerTheme === 'dark' ? '#3A302A' : '#EAE4D8',
-              borderColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8'
+              backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+              borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
             }}
           >
             <NoteSidebar
@@ -868,7 +763,7 @@ const ImmersiveReader = () => {
               onCreateNote={() => setIsCreateNoteDialogOpen(true)}
               currentBookId={activeBook.id}
               currentChapterIndex={safeChapterIndex}
-              theme={readerTheme}
+              theme={theme}
               key={notesRefreshKey}
             />
           </div>
@@ -879,8 +774,8 @@ const ImmersiveReader = () => {
               isChapterListVisible ? 'w-[15%]' : 'w-0'
             }`}
             style={{
-              backgroundColor: readerTheme === 'dark' ? '#3A302A' : '#EAE4D8',
-              borderColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8',
+              backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+              borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8',
               transition: 'width 300ms ease-in-out'
             }}
           >
@@ -896,15 +791,15 @@ const ImmersiveReader = () => {
                   onClick={() => setIsChapterListVisible(false)}
                   className="absolute top-4 right-2 z-10 p-1.5 rounded transition-colors"
                   style={{
-                    color: readerTheme === 'dark' ? '#B8A895' : '#6B5D52'
+                    color: theme === 'dark' ? '#B8A895' : '#6B5D52'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8';
-                    e.currentTarget.style.color = readerTheme === 'dark' ? '#E8DDD0' : '#3E3530';
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
+                    e.currentTarget.style.color = theme === 'dark' ? '#E8DDD0' : '#3E3530';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = readerTheme === 'dark' ? '#B8A895' : '#6B5D52';
+                    e.currentTarget.style.color = theme === 'dark' ? '#B8A895' : '#6B5D52';
                   }}
                   title="收起章节列表"
                 >
@@ -914,7 +809,7 @@ const ImmersiveReader = () => {
                   chapters={activeBook.chapters}
                   activeChapterIndex={safeChapterIndex}
                   onChapterClick={handleChapterClick}
-                  theme={readerTheme}
+                  theme={theme}
                 />
               </div>
             </div>
@@ -926,17 +821,17 @@ const ImmersiveReader = () => {
               onClick={() => setIsChapterListVisible(true)}
               className="fixed left-[20%] top-1/2 -translate-y-1/2 z-20 p-2 border-r rounded-r-lg transition-all duration-300 shadow-lg"
               style={{
-                backgroundColor: readerTheme === 'dark' ? '#3A302A' : '#EAE4D8',
-                color: readerTheme === 'dark' ? '#B8A895' : '#6B5D52',
-                borderColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8'
+                backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+                color: theme === 'dark' ? '#B8A895' : '#6B5D52',
+                borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8';
-                e.currentTarget.style.color = readerTheme === 'dark' ? '#E8DDD0' : '#3E3530';
+                e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
+                e.currentTarget.style.color = theme === 'dark' ? '#E8DDD0' : '#3E3530';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = readerTheme === 'dark' ? '#3A302A' : '#EAE4D8';
-                e.currentTarget.style.color = readerTheme === 'dark' ? '#B8A895' : '#6B5D52';
+                e.currentTarget.style.backgroundColor = theme === 'dark' ? '#3A302A' : '#EAE4D8';
+                e.currentTarget.style.color = theme === 'dark' ? '#B8A895' : '#6B5D52';
               }}
               title="展开章节列表"
             >
@@ -951,8 +846,7 @@ const ImmersiveReader = () => {
           >
             <ReaderContent
               chapter={currentChapter}
-              theme={readerTheme}
-              onThemeToggle={toggleReaderTheme}
+              theme={theme}
               onTextSelection={handleTextSelection}
               bookId={activeBook.id}
               chapterIndex={safeChapterIndex}
@@ -969,8 +863,8 @@ const ImmersiveReader = () => {
           <div 
             className="w-1/4 border-l"
             style={{
-              backgroundColor: readerTheme === 'dark' ? '#3A302A' : '#EAE4D8',
-              borderColor: readerTheme === 'dark' ? '#4A3D35' : '#D4C8B8'
+              backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+              borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
             }}
           >
             <NoteDetailPanel
@@ -981,7 +875,7 @@ const ImmersiveReader = () => {
               tags={tags}
               onJumpToChapter={handleJumpToChapter}
               onJumpToNote={handleJumpToNote}
-              theme={readerTheme}
+              theme={theme}
             />
           </div>
         </main>
@@ -1014,8 +908,8 @@ const ImmersiveReader = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: readerTheme === 'dark' ? '#2D2520' : '#F5F1E8',
-        color: readerTheme === 'dark' ? '#B8A895' : '#6B5D52',
+        backgroundColor: theme === 'dark' ? '#2D2520' : '#F5F1E8',
+        color: theme === 'dark' ? '#B8A895' : '#6B5D52',
         margin: 0,
         padding: 0,
         overflow: 'hidden'

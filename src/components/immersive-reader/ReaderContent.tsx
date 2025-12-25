@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import { Moon, Sun, Highlighter, Underline, StickyNote, X, ChevronRight } from 'lucide-react';
+import { Highlighter, Underline, StickyNote, X, ChevronRight } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Chapter, ThemeMode } from './types';
 import { Note } from '../../types/notes';
@@ -7,7 +7,6 @@ import { Note } from '../../types/notes';
 interface ReaderContentProps {
   chapter: Chapter;
   theme: ThemeMode;
-  onThemeToggle: () => void;
   onTextSelection?: (text: string) => void;
   bookId?: number;
   chapterIndex?: number;
@@ -52,7 +51,6 @@ const MemoizedContent = memo<{
 const ReaderContent = memo(({ 
   chapter, 
   theme, 
-  onThemeToggle,
   onTextSelection,
   notes = [],
   onAnnotate,
@@ -469,19 +467,6 @@ const ReaderContent = memo(({
         backgroundColor: isDark ? '#2D2520' : '#F5F1E8'
       }}
     >
-      {/* Theme Toggle Button */}
-      <button
-        onClick={onThemeToggle}
-        className="fixed bottom-8 right-8 p-4 rounded-full shadow-2xl transition-all duration-300 z-40 hover:scale-110"
-        style={{
-          backgroundColor: isDark ? '#D4A574' : '#5A4A3A',
-          color: isDark ? '#2D2520' : '#F5F1E8'
-        }}
-        title={isDark ? '切换到日间模式' : '切换到夜间模式'}
-      >
-        {isDark ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
-      </button>
-
       {/* 文本选择工具栏 */}
       {selectedText && selectionPosition && (
         <div

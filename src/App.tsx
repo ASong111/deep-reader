@@ -1,9 +1,11 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 // V2 核心 API 导入路径变更
 import { invoke } from "@tauri-apps/api/core";
 import DOMPurify from "dompurify";
+import { Sun, Moon } from "lucide-react";
 // 导入沉浸式阅读器组件
 import ImmersiveReader from "./components/immersive-reader/ImmersiveReader";
+import { ThemeMode } from "./components/immersive-reader/types";
 
 interface Book {
   id: number;
@@ -25,6 +27,67 @@ function App() {
   const [loading, setLoading] = useState(false);
   // 添加状态来切换 UI 模式
   const [useImmersiveUI, setUseImmersiveUI] = useState(true);
+  const [theme, setTheme] = useState<ThemeMode>('light');
+
+  const isDark = theme === 'dark';
+
+  // 主题切换时更新背景色
+  useEffect(() => {
+    const bgColor = theme === 'dark' ? '#2D2520' : '#F5F1E8';
+    document.documentElement.style.setProperty('background-color', bgColor, 'important');
+    document.body.style.setProperty('background-color', bgColor, 'important');
+    const rootEl = document.getElementById('root');
+    if (rootEl) {
+      rootEl.style.setProperty('background-color', bgColor, 'important');
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    const currentTheme = theme;
+    const htmlBg = window.getComputedStyle(document.documentElement).backgroundColor;
+    const bodyBg = window.getComputedStyle(document.body).backgroundColor;
+    const rootEl = document.getElementById('root');
+    const rootBg = rootEl ? window.getComputedStyle(rootEl).backgroundColor : 'null';
+    
+    // 调试日志逻辑
+    fetch('http://127.0.0.1:7242/ingest/74ed1feb-fd97-42b7-bca9-db5b7412fc2c',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        location:'App.tsx:toggleTheme:BEFORE',
+        message:'Theme toggle start',
+        data:{currentTheme:currentTheme,htmlBg:htmlBg,bodyBg:bodyBg,rootBg:rootBg},
+        timestamp:Date.now(),
+        sessionId:'debug-session',
+        runId:'theme-check',
+        hypothesisId:'H1'
+      })
+    }).catch(()=>{});
+
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+
+    setTimeout(() => {
+      const newTheme = theme === 'light' ? 'dark' : 'light';
+      const htmlBgAfter = window.getComputedStyle(document.documentElement).backgroundColor;
+      const bodyBgAfter = window.getComputedStyle(document.body).backgroundColor;
+      const rootElAfter = document.getElementById('root');
+      const rootBgAfter = rootElAfter ? window.getComputedStyle(rootElAfter).backgroundColor : 'null';
+      
+      fetch('http://127.0.0.1:7242/ingest/74ed1feb-fd97-42b7-bca9-db5b7412fc2c',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          location:'App.tsx:toggleTheme:AFTER',
+          message:'Theme toggle complete',
+          data:{newTheme:newTheme,htmlBgAfter:htmlBgAfter,bodyBgAfter:bodyBgAfter,rootBgAfter:rootBgAfter},
+          timestamp:Date.now(),
+          sessionId:'debug-session',
+          runId:'theme-check',
+          hypothesisId:'H1'
+        })
+      }).catch(()=>{});
+    }, 100);
+  };
 
   // 使用 useMemo 缓存清洗后的内容
   const sanitizedContent = useMemo(
@@ -100,24 +163,33 @@ function App() {
     }
   }, [ selectedBookId]);
 
-  // 如果使用沉浸式 UI，直接返回新组件
-  if (useImmersiveUI) {
-    // 直接返回 ImmersiveReader，让它自己管理背景色
-    return <ImmersiveReader />;
-  }
-
-  return (
-    <div className="flex flex-col h-screen bg-neutral-50 text-gray-800 font-sans overflow-hidden">
+  // 根据 UI 模式选择内容
+  const mainContent = useImmersiveUI ? (
+    <ImmersiveReader theme={theme} />
+  ) : (
+    <div 
+      className={`flex flex-col h-screen font-sans overflow-hidden transition-colors duration-300 ${
+        isDark ? 'bg-[#2D2520] text-[#B8A895]' : 'bg-neutral-50 text-gray-800'
+      }`}
+    >
       
       {/* 顶部导航栏 */}
-      <nav className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm z-20">
-        <div className="font-bold text-xl text-indigo-600 flex items-center gap-2">
-           📚 DeepReader <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">v2.0</span>
+      <nav className={`h-14 border-b flex items-center justify-between px-6 shadow-sm z-20 ${
+        isDark ? 'bg-[#3A302A] border-[#4A3D35]' : 'bg-white border-gray-200'
+      }`}>
+        <div className={`font-bold text-xl flex items-center gap-2 ${
+          isDark ? 'text-[#D4A574]' : 'text-indigo-600'
+        }`}>
+           📚 DeepReader <span className={`text-xs px-2 py-0.5 rounded ${
+             isDark ? 'bg-[#4A3D35] text-[#B8A895]' : 'bg-gray-100 text-gray-500'
+           }`}>v2.0</span>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setUseImmersiveUI(true)}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-md transition-colors shadow-sm"
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors shadow-sm ${
+              isDark ? 'bg-[#4A3D35] hover:bg-[#524439] text-[#E8DDD0]' : 'bg-purple-600 hover:bg-purple-700 text-white'
+            }`}
           >
             🎨 尝试沉浸式 UI
           </button>
@@ -125,7 +197,9 @@ function App() {
           onClick={handleUpload}
           disabled={loading}
           className={`px-4 py-2 rounded-md text-sm font-medium text-white transition-all shadow-sm ${
-            loading ? "bg-indigo-300 cursor-wait" : "bg-indigo-600 hover:bg-indigo-700 hover:shadow"
+            loading 
+              ? (isDark ? "bg-[#4A3D35] cursor-wait" : "bg-indigo-300 cursor-wait") 
+              : (isDark ? "bg-[#8B7355] hover:bg-[#9A8164]" : "bg-indigo-600 hover:bg-indigo-700")
           }`}
         >
             {loading ? "Processing..." : "Import EPUB"}
@@ -136,11 +210,15 @@ function App() {
       <div className="flex flex-1 overflow-hidden">
         
         {/* 左侧窗格: 目录/列表 */}
-        <aside className="w-[300px] border-r border-gray-200 bg-gray-50 flex flex-col flex-shrink-0 transition-all">
+        <aside className={`w-[300px] border-r flex flex-col flex-shrink-0 transition-all ${
+          isDark ? 'bg-[#3A302A] border-[#4A3D35]' : 'bg-gray-50 border-gray-200'
+        }`}>
           {!selectedBookId ? (
             <div className="flex-1 overflow-y-auto p-4">
               <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Library</h2>
+                  <h2 className={`text-xs font-semibold uppercase tracking-wider ${
+                    isDark ? 'text-[#8B7355]' : 'text-gray-500'
+                  }`}>Library</h2>
                   <span className="text-xs text-gray-400">{books.length} items</span>
               </div>
               <div className="space-y-3">
@@ -148,20 +226,30 @@ function App() {
                   <div
                     key={book.id}
                     onClick={() => handleBookClick(book.id)}
-                    className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm cursor-pointer hover:shadow-md hover:border-indigo-100 transition-all flex items-start group"
+                    className={`p-3 rounded-lg border shadow-sm cursor-pointer transition-all flex items-start group ${
+                      isDark 
+                        ? 'bg-[#4A3D35] border-[#524439] hover:shadow-md hover:border-[#8B7355]' 
+                        : 'bg-white border-gray-100 hover:shadow-md hover:border-indigo-100'
+                    }`}
                   >
                     <div className="w-10 h-14 bg-gray-200 rounded flex-shrink-0 overflow-hidden">
                         {book.cover_image ? <img src={book.cover_image} className="w-full h-full object-cover" alt="cover" /> : <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">N/A</div>}
                     </div>
                     <div className="ml-3 flex-1 min-w-0 flex flex-col justify-between h-14">
                       <div>
-                        <h3 className="text-sm font-medium text-gray-900 truncate" title={book.title}>{book.title}</h3>
-                        <p className="text-xs text-gray-500 truncate">{book.author}</p>
+                        <h3 className={`text-sm font-medium truncate ${
+                          isDark ? 'text-[#E8DDD0]' : 'text-gray-900'
+                        }`} title={book.title}>{book.title}</h3>
+                        <p className={`text-xs truncate ${
+                          isDark ? 'text-[#B8A895]' : 'text-gray-500'
+                        }`}>{book.author}</p>
                       </div>
                     </div>
                     <button 
                         onClick={(e) => handleRemove(e, book.id)}
-                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 p-1">
+                        className={`hover:text-red-500 opacity-0 group-hover:opacity-100 p-1 ${
+                          isDark ? 'text-[#8B7355]' : 'text-gray-300'
+                        }`}>
                         &times;
                     </button>
                   </div>
@@ -169,23 +257,33 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col h-full bg-gray-50">
-               <div className="p-3 border-b border-gray-200 bg-gray-50 flex items-center">
+            <div className={`flex flex-col h-full ${isDark ? 'bg-[#3A302A]' : 'bg-gray-50'}`}>
+               <div className={`p-3 border-b flex items-center ${
+                 isDark ? 'bg-[#3A302A] border-[#4A3D35]' : 'bg-gray-50 border-gray-200'
+               }`}>
                  <button 
                    onClick={() => setSelectedBookId(null)}
-                   className="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
+                   className={`text-xs font-medium flex items-center gap-1 transition-colors ${
+                     isDark ? 'text-[#D4A574] hover:text-[#E8DDD0]' : 'text-indigo-600 hover:text-indigo-800'
+                   }`}
                  >
                    <span>&larr;</span> 返回图书馆
                  </button>
                </div>
                <div className="p-4 overflow-y-auto flex-1">
-                 <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Table of Contents</h2>
+                 <h2 className={`text-xs font-semibold uppercase tracking-wider mb-4 ${
+                   isDark ? 'text-[#8B7355]' : 'text-gray-500'
+                 }`}>Table of Contents</h2>
                  <ul className="space-y-1">
                    {chapters.map((chapter, idx) => (
                      <li 
                        key={idx}
                        onClick={() => selectedBookId && handleChapterClick(selectedBookId, idx)}
-                       className="text-sm text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 px-3 py-2 rounded-md cursor-pointer truncate transition-colors"
+                       className={`text-sm px-3 py-2 rounded-md cursor-pointer truncate transition-colors ${
+                         isDark 
+                           ? 'text-[#B8A895] hover:bg-[#4A3D35] hover:text-[#E8DDD0]' 
+                           : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
+                       }`}
                      >
                        {chapter.title}
                      </li>
@@ -197,16 +295,22 @@ function App() {
         </aside>
 
         {/* 右侧窗格: 阅读器 (65%+) */}
-        <main className="flex-1 bg-white overflow-hidden relative flex flex-col h-full border-l border-gray-200">
+        <main className={`flex-1 overflow-hidden relative flex flex-col h-full border-l ${
+          isDark ? 'bg-[#2D2520] border-[#4A3D35]' : 'bg-white border-gray-200'
+        }`}>
           {selectedBookId ? (
             <div className="flex-1 overflow-y-auto px-12 py-10 w-full mx-auto">
-                <article className="prose prose-slate prose-lg max-w-3xl mx-auto">
+                <article className={`prose prose-lg max-w-3xl mx-auto ${
+                  isDark ? 'prose-invert' : 'prose-slate'
+                }`}>
                     {/* 阅读器内容 */}
                     <div dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
                 </article>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-gray-300 select-none">
+            <div className={`flex flex-col items-center justify-center h-full select-none ${
+              isDark ? 'text-[#4A3D35]' : 'text-gray-300'
+            }`}>
               <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
               <p className="text-sm font-medium">Select a book to start reading</p>
             </div>
@@ -214,6 +318,24 @@ function App() {
         </main>
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {mainContent}
+      {/* 全局主题切换按钮 */}
+      <button
+        onClick={toggleTheme}
+        className="fixed bottom-8 right-8 p-4 rounded-full shadow-2xl transition-all duration-300 z-[9999] hover:scale-110"
+        style={{
+          backgroundColor: theme === 'dark' ? '#D4A574' : '#5A4A3A',
+          color: theme === 'dark' ? '#2D2520' : '#F5F1E8'
+        }}
+        title={theme === 'dark' ? '切换到日间模式' : '切换到夜间模式'}
+      >
+        {theme === 'dark' ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+      </button>
+    </>
   );
 }
 
