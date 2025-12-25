@@ -1821,37 +1821,9 @@ fn get_tag_statistics(app: AppHandle) -> Result<Vec<TagStatistics>, String> {
 
 // 启动自动清理任务
 fn start_cleanup_task(app: AppHandle) {
-    // #region agent log
-    let log_path = std::path::PathBuf::from("/home/project/deep-reader/.cursor/debug.log");
-    let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
-        use std::io::Write;
-        let has_runtime = tokio::runtime::Handle::try_current().is_ok();
-        writeln!(f, r#"{{"timestamp":{},"location":"lib.rs:1551","message":"start_cleanup_task called","data":{{"has_runtime":{}}},"sessionId":"debug-session","runId":"initial","hypothesisId":"A"}}"#, 
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), has_runtime)
-    });
-    // #endregion agent log
-    
     std::thread::spawn(move || {
-        // #region agent log
-        let log_path = std::path::PathBuf::from("/home/project/deep-reader/.cursor/debug.log");
-        let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
-            use std::io::Write;
-            writeln!(f, r#"{{"timestamp":{},"location":"lib.rs:1569","message":"cleanup thread started, creating runtime","sessionId":"debug-session","runId":"initial","hypothesisId":"C"}}"#, 
-                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
-        });
-        // #endregion agent log
-        
         let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
         rt.block_on(async move {
-            // #region agent log
-            let log_path = std::path::PathBuf::from("/home/project/deep-reader/.cursor/debug.log");
-            let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
-                use std::io::Write;
-                writeln!(f, r#"{{"timestamp":{},"location":"lib.rs:1586","message":"runtime created, starting cleanup loop","sessionId":"debug-session","runId":"initial","hypothesisId":"B"}}"#, 
-                    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
-            });
-            // #endregion agent log
-            
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(86400)); // 24小时
             interval.tick().await; // 跳过第一次立即执行
             
@@ -1864,15 +1836,6 @@ fn start_cleanup_task(app: AppHandle) {
                         []
                     );
                     println!("自动清理回收站完成");
-                    
-                    // #region agent log
-                    let log_path = std::path::PathBuf::from("/home/project/deep-reader/.cursor/debug.log");
-                    let _ = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).and_then(|mut f| {
-                        use std::io::Write;
-                        writeln!(f, r#"{{"timestamp":{},"location":"lib.rs:1608","message":"cleanup task executed","sessionId":"debug-session","runId":"initial","hypothesisId":"D"}}"#, 
-                            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
-                    });
-                    // #endregion agent log
                 }
             }
         });

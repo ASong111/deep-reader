@@ -80,9 +80,6 @@ const AISidebar = ({
 
   // 对话模式：发送消息
   const handleSendMessage = useCallback(async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/8f2f2065-39d2-4b04-b108-cc9eb2afc339',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AISidebar.tsx:handleSendMessage',message:'Function entered',data:{input:inputMessage,isLoading},timestamp:Date.now(),sessionId:'ime-debug',hypothesisId:'H13'})}).catch(()=>{});
-    // #endregion
     if (!inputMessage.trim() || !bookId || chapterIndex === undefined || isLoading) {
       return;
     }
@@ -288,9 +285,6 @@ const AISidebar = ({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                // #region agent log
-                fetch('http://127.0.0.1:7243/ingest/8f2f2065-39d2-4b04-b108-cc9eb2afc339',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AISidebar.tsx:onSubmit',message:'Form submitted',data:{input:inputMessage},timestamp:Date.now(),sessionId:'ime-debug',runId:'post-fix'})}).catch(()=>{});
-                // #endregion
                 handleSendMessage();
               }}
               className="p-4 border-t"

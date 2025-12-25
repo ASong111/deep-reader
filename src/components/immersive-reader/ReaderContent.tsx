@@ -63,13 +63,6 @@ const ReaderContent = memo(({
 }: ReaderContentProps) => {
   const isDark = theme === 'dark';
   
-  // #region agent log
-  useEffect(() => {
-    const sectionEl = document.querySelector('section.w-full.h-full.overflow-y-auto');
-    const sectionBg = sectionEl ? window.getComputedStyle(sectionEl).backgroundColor : 'not-found';
-    fetch('http://127.0.0.1:7242/ingest/74ed1feb-fd97-42b7-bca9-db5b7412fc2c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ReaderContent.tsx:useEffect',message:'ReaderContent theme updated',data:{theme:theme,isDark:isDark,expectedBg:isDark?'#2D2520':'#F5F1E8',actualSectionBg:sectionBg},timestamp:Date.now(),sessionId:'debug-session',runId:'reader-theme',hypothesisId:'H3'})}).catch(()=>{});
-  }, [theme, isDark]);
-  // #endregion
   const contentRef = useRef<HTMLDivElement>(null);
   const [selectedText, setSelectedText] = useState<string>("");
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null);

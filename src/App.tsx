@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 // V2 核心 API 导入路径变更
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import DOMPurify from "dompurify";
 import { Sun, Moon } from "lucide-react";
 // 导入沉浸式阅读器组件
@@ -42,51 +43,29 @@ function App() {
     }
   }, [theme]);
 
+  // 添加全屏切换监听
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      if (e.key === 'F11') {
+        e.preventDefault();
+        try {
+          const appWindow = getCurrentWindow();
+          const isFullscreen = await appWindow.isFullscreen();
+          await appWindow.setFullscreen(!isFullscreen);
+        } catch (error: any) {
+          console.error('Fullscreen API error:', error);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   const toggleTheme = () => {
-    const currentTheme = theme;
-    const htmlBg = window.getComputedStyle(document.documentElement).backgroundColor;
-    const bodyBg = window.getComputedStyle(document.body).backgroundColor;
-    const rootEl = document.getElementById('root');
-    const rootBg = rootEl ? window.getComputedStyle(rootEl).backgroundColor : 'null';
-    
-    // 调试日志逻辑
-    fetch('http://127.0.0.1:7242/ingest/74ed1feb-fd97-42b7-bca9-db5b7412fc2c',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        location:'App.tsx:toggleTheme:BEFORE',
-        message:'Theme toggle start',
-        data:{currentTheme:currentTheme,htmlBg:htmlBg,bodyBg:bodyBg,rootBg:rootBg},
-        timestamp:Date.now(),
-        sessionId:'debug-session',
-        runId:'theme-check',
-        hypothesisId:'H1'
-      })
-    }).catch(()=>{});
-
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
-
-    setTimeout(() => {
-      const newTheme = theme === 'light' ? 'dark' : 'light';
-      const htmlBgAfter = window.getComputedStyle(document.documentElement).backgroundColor;
-      const bodyBgAfter = window.getComputedStyle(document.body).backgroundColor;
-      const rootElAfter = document.getElementById('root');
-      const rootBgAfter = rootElAfter ? window.getComputedStyle(rootElAfter).backgroundColor : 'null';
-      
-      fetch('http://127.0.0.1:7242/ingest/74ed1feb-fd97-42b7-bca9-db5b7412fc2c',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          location:'App.tsx:toggleTheme:AFTER',
-          message:'Theme toggle complete',
-          data:{newTheme:newTheme,htmlBgAfter:htmlBgAfter,bodyBgAfter:bodyBgAfter,rootBgAfter:rootBgAfter},
-          timestamp:Date.now(),
-          sessionId:'debug-session',
-          runId:'theme-check',
-          hypothesisId:'H1'
-        })
-      }).catch(()=>{});
-    }, 100);
   };
 
   // 使用 useMemo 缓存清洗后的内容

@@ -252,9 +252,6 @@ export default function NoteDetailPanel({
 
   // 对话模式：发送消息
   const handleSendChatMessage = useCallback(async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/8f2f2065-39d2-4b04-b108-cc9eb2afc339',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteDetailPanel.tsx:handleSendChatMessage',message:'Function entered',data:{input:chatInput,aiLoading},timestamp:Date.now(),sessionId:'ime-debug',hypothesisId:'H13'})}).catch(()=>{});
-    // #endregion
     if (!chatInput.trim() || !bookId || chapterIndex === undefined || aiLoading) {
       return;
     }
@@ -1117,9 +1114,6 @@ export default function NoteDetailPanel({
                   <form 
                     onSubmit={(e) => {
                       e.preventDefault();
-                      // #region agent log
-                      fetch('http://127.0.0.1:7243/ingest/8f2f2065-39d2-4b04-b108-cc9eb2afc339',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NoteDetailPanel.tsx:onSubmit',message:'Form submitted',data:{input:chatInput},timestamp:Date.now(),sessionId:'ime-debug',runId:'post-fix'})}).catch(()=>{});
-                      // #endregion
                       handleSendChatMessage();
                     }}
                     className="flex gap-2"
