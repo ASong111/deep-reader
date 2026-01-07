@@ -18,7 +18,97 @@ pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
         )",
         [],
     )?;
-    
+
+    // 添加新字段到 books 表（用于多格式导入）
+    let _ = conn.execute("ALTER TABLE books ADD COLUMN parse_status TEXT DEFAULT 'pending'", []);
+    let _ = conn.execute("ALTER TABLE books ADD COLUMN parse_quality TEXT DEFAULT 'native'", []);
+    let _ = conn.execute("ALTER TABLE books ADD COLUMN total_blocks INTEGER DEFAULT 0", []);
+
+    // 章节表（IRP 架构）
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS chapters (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            chapter_index INTEGER NOT NULL,
+            confidence_level TEXT DEFAULT 'explicit',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // 内容块表（IRP 架构）
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS blocks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chapter_id INTEGER NOT NULL,
+            block_index INTEGER NOT NULL,
+            block_type TEXT NOT NULL,
+            runs_json TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // 资产映射表
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS asset_mappings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_id INTEGER NOT NULL,
+            original_path TEXT NOT NULL,
+            local_path TEXT NOT NULL,
+            asset_type TEXT DEFAULT 'image',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // 阅读进度表
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS reading_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_id INTEGER NOT NULL,
+            chapter_id INTEGER NOT NULL,
+            block_id INTEGER NOT NULL,
+            scroll_offset INTEGER DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+            FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
+            FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE,
+            UNIQUE(book_id)
+        )",
+        [],
+    )?;
+
+    // 创建 IRP 相关索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_chapters_book_id ON chapters(book_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_chapters_index ON chapters(book_id, chapter_index)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_blocks_chapter_id ON blocks(chapter_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_blocks_index ON blocks(chapter_id, block_index)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_asset_mappings_book_id ON asset_mappings(book_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_reading_progress_book_id ON reading_progress(book_id)",
+        [],
+    )?;
+
     // 分类表
     conn.execute(
         "CREATE TABLE IF NOT EXISTS categories (

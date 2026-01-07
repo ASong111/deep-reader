@@ -39,6 +39,8 @@ tokio = { version = "1", features = ["full"] }
 # 用于加密
 aes-gcm = "0.10"
 rand = "0.8"
+# 用于 SHA256 哈希
+sha2 = "0.10"
 # 用于测试
 tempfile = "3.10"
 

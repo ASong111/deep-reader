@@ -698,6 +698,8 @@ async fn get_ai_suggestion(app: AppHandle, note_id: i32) -> Result<String, Strin
 
 mod db;
 mod encryption;
+mod irp;
+mod asset_manager;
 
 #[derive(Serialize, Debug)]
 struct Book {
