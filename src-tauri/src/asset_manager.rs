@@ -177,6 +177,7 @@ pub fn get_book_assets(conn: &Connection, book_id: i32) -> Result<Vec<(String, S
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
 
     #[test]
     fn test_hash_generation() {
@@ -197,5 +198,87 @@ mod tests {
             .unwrap_or("png");
 
         assert_eq!(ext, "png");
+    }
+
+    #[test]
+    fn test_save_and_get_asset_mapping() {
+        use crate::db;
+
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        let conn = db::init_db(&db_path).unwrap();
+
+        // 创建测试书籍
+        conn.execute(
+            "INSERT INTO books (title, author, file_path) VALUES (?1, ?2, ?3)",
+            rusqlite::params!["测试书籍", "测试作者", "/test/path"],
+        )
+        .unwrap();
+        let book_id = conn.last_insert_rowid() as i32;
+
+        // 保存资产映射
+        let original_path = "images/cover.png";
+        let local_path = "assets/1/abc123.png";
+        save_asset_mapping(&conn, book_id, original_path, local_path, "image").unwrap();
+
+        // 获取资产映射
+        let result = get_local_path(&conn, book_id, original_path).unwrap();
+        assert_eq!(result, Some(local_path.to_string()));
+
+        // 测试不存在的映射
+        let result = get_local_path(&conn, book_id, "nonexistent.png").unwrap();
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_get_book_assets() {
+        use crate::db;
+
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        let conn = db::init_db(&db_path).unwrap();
+
+        // 创建测试书籍
+        conn.execute(
+            "INSERT INTO books (title, author, file_path) VALUES (?1, ?2, ?3)",
+            rusqlite::params!["测试书籍", "测试作者", "/test/path"],
+        )
+        .unwrap();
+        let book_id = conn.last_insert_rowid() as i32;
+
+        // 保存多个资产映射
+        save_asset_mapping(&conn, book_id, "images/cover.png", "assets/1/abc123.png", "image").unwrap();
+        save_asset_mapping(&conn, book_id, "images/page1.jpg", "assets/1/def456.jpg", "image").unwrap();
+
+        // 获取所有资产
+        let assets = get_book_assets(&conn, book_id).unwrap();
+        assert_eq!(assets.len(), 2);
+        assert!(assets.iter().any(|(orig, _)| orig == "images/cover.png"));
+        assert!(assets.iter().any(|(orig, _)| orig == "images/page1.jpg"));
+    }
+
+    #[test]
+    fn test_hash_deduplication() {
+        // 测试相同数据生成相同哈希
+        let data1 = b"test image data";
+        let data2 = b"test image data";
+
+        let mut hasher1 = Sha256::new();
+        hasher1.update(data1);
+        let hash1 = format!("{:x}", hasher1.finalize());
+
+        let mut hasher2 = Sha256::new();
+        hasher2.update(data2);
+        let hash2 = format!("{:x}", hasher2.finalize());
+
+        assert_eq!(hash1, hash2);
+
+        // 测试不同数据生成不同哈希
+        let data3 = b"different image data";
+        let mut hasher3 = Sha256::new();
+        hasher3.update(data3);
+        let hash3 = format!("{:x}", hasher3.finalize());
+
+        assert_ne!(hash1, hash3);
     }
 }

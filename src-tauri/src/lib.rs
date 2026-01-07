@@ -700,6 +700,9 @@ mod db;
 mod encryption;
 mod irp;
 mod asset_manager;
+mod parser;
+mod import_queue;
+mod async_import;
 
 #[derive(Serialize, Debug)]
 struct Book {
@@ -751,7 +754,7 @@ async fn upload_epub_file(app: AppHandle) -> Result<String, String> {
     let author = doc.mdata("creator")
         .map(|item| item.value.clone())
         .unwrap_or("Unknown Author".to_string());
-    
+
     // 处理封面
     let cover_base64 = doc.get_cover().map(|(data, _)| {
         format!("data:image/png;base64,{}", general_purpose::STANDARD.encode(&data))
@@ -766,7 +769,7 @@ async fn upload_epub_file(app: AppHandle) -> Result<String, String> {
 
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
     let path_str = path.to_string_lossy().to_string();
-    
+
     conn.execute(
         "INSERT INTO books (title, author, file_path, cover_image) VALUES (?1, ?2, ?3, ?4)",
         (&title, &author, &path_str, &cover_base64),
@@ -776,6 +779,14 @@ async fn upload_epub_file(app: AppHandle) -> Result<String, String> {
     app.emit("book-added", &title).map_err(|e| e.to_string())?;
 
     Ok("导入成功".to_string())
+}
+
+/// 异步导入书籍（支持多种格式）
+///
+/// 创建书籍记录并加入导入队列，立即返回 book_id
+#[tauri::command]
+async fn import_book(app: AppHandle, file_path: String) -> Result<i32, String> {
+    async_import::import_book_async(app, file_path).await
 }
 
 #[tauri::command]
@@ -823,20 +834,35 @@ fn get_books(app: AppHandle) -> Result<Vec<Book>, String> {
 fn get_book_details(app: AppHandle, id: i32) -> Result<Vec<ChapterInfo>, String> {
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
-    let path: String = conn.query_row("SELECT file_path FROM books WHERE id = ?1", [id], |row| row.get(0))
-        .map_err(|_| "找不到书籍".to_string())?;
 
-    let doc = EpubDoc::new(&path).map_err(|e| e.to_string())?;
-    
-    let mut chapters = Vec::new();
-    // 简单获取章节列表
-    for i in 0..doc.get_num_chapters() {
-        chapters.push(ChapterInfo {
-            title: format!("章节 {}", i + 1), 
-            id: i.to_string(), 
-        });
+    // 检查书籍解析状态
+    let status: String = conn.query_row(
+        "SELECT parse_status FROM books WHERE id = ?1",
+        [id],
+        |row| row.get(0)
+    ).map_err(|_| "找不到书籍".to_string())?;
+
+    // 如果书籍还未完成解析，返回空列表或错误
+    if status != "completed" {
+        // 可以选择返回错误或空列表
+        // 这里返回空列表，前端可以显示"正在解析中"的提示
+        return Ok(vec![]);
     }
-    Ok(chapters)
+
+    // 从 IRP 的 chapters 表读取章节信息
+    let chapters = irp::get_chapters_by_book(&conn, id)
+        .map_err(|e| e.to_string())?;
+
+    // 转换为前端需要的格式
+    let chapter_infos: Vec<ChapterInfo> = chapters
+        .into_iter()
+        .map(|c| ChapterInfo {
+            title: c.title,
+            id: c.id.to_string(),
+        })
+        .collect();
+
+    Ok(chapter_infos)
 }
 
 // 从 HTML 内容中提取纯文本（去除标签）
@@ -874,53 +900,134 @@ fn get_chapter_plain_text(app: &AppHandle, book_id: i32, chapter_index: usize) -
 }
 
 #[tauri::command]
-fn get_chapter_content(app: AppHandle, book_id: i32, chapter_index: usize) -> Result<String, String> {
+fn get_chapter_content(app: AppHandle, _book_id: i32, chapter_id: i32) -> Result<String, String> {
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
-    let path: String = conn.query_row("SELECT file_path FROM books WHERE id = ?1", [book_id], |row| row.get(0))
-        .map_err(|_| "找不到书籍".to_string())?;
 
-    let mut doc = EpubDoc::new(&path).map_err(|e| e.to_string())?;
-    // 检查 set_current_chapter 是否成功
-    if !doc.set_current_chapter(chapter_index) {
-        return Err(format!("无法设置章节 {}", chapter_index));
-    }
-    
-    let (mut content, _) = doc.get_current_str()
-        .ok_or_else(|| "无法获取章节内容".to_string())?;
-    
-    // 处理图片资源：将 EPUB 内部图片转换为 base64
-    let img_regex = regex::Regex::new(r#"<img[^>]*src="([^"]+)"[^>]*>"#).unwrap();
-    for cap in img_regex.captures_iter(&content.clone()) {
-        if let Some(src) = cap.get(1) {
-            let src_str = src.as_str();
-            // 尝试从 EPUB 中获取资源
-            if let Some(data) = doc.get_resource_by_path(src_str) {
-                // 根据扩展名推断 MIME 类型
-                let mime = match src_str.rsplit('.').next().unwrap_or("").to_lowercase().as_str() {
-                    "png" => "image/png",
-                    "jpg" | "jpeg" => "image/jpeg",
-                    "gif" => "image/gif",
-                    "webp" => "image/webp",
-                    "svg" => "image/svg+xml",
-                    _ => "application/octet-stream",
-                };
-                let base64_data = general_purpose::STANDARD.encode(&data);
-                let data_uri = format!("data:{};base64,{}", mime, base64_data);
-                content = content.replace(src_str, &data_uri);
+    // 获取该章节的所有 blocks
+    let blocks = irp::get_blocks_by_chapter(&conn, chapter_id)
+        .map_err(|e| e.to_string())?;
+
+    // 将 blocks 转换为 HTML
+    let html = render_blocks_to_html(&blocks, &app)?;
+
+    Ok(html)
+}
+
+/// 将 IRP blocks 渲染为 HTML
+fn render_blocks_to_html(blocks: &[irp::Block], _app: &AppHandle) -> Result<String, String> {
+    let mut html = String::new();
+
+    for block in blocks {
+        match block.block_type.as_str() {
+            "paragraph" => {
+                html.push_str("<p>");
+                html.push_str(&render_runs_to_html(&block.runs));
+                html.push_str("</p>");
+            }
+            "heading" => {
+                html.push_str("<h2>");
+                html.push_str(&render_runs_to_html(&block.runs));
+                html.push_str("</h2>");
+            }
+            "image" => {
+                // 从 runs 中提取图片路径
+                if let Some(run) = block.runs.first() {
+                    let image_path = &run.text;
+                    // 这里可以添加图片路径解析逻辑
+                    // 暂时直接使用路径
+                    html.push_str(&format!("<img src='{}' alt='image' />", html_escape::encode_text(image_path)));
+                }
+            }
+            "code" => {
+                html.push_str("<pre><code>");
+                html.push_str(&render_runs_to_html(&block.runs));
+                html.push_str("</code></pre>");
+            }
+            _ => {
+                // 未知类型，作为段落处理
+                html.push_str("<p>");
+                html.push_str(&render_runs_to_html(&block.runs));
+                html.push_str("</p>");
             }
         }
     }
-    
-    Ok(content)
+
+    Ok(html)
+}
+
+/// 将 TextRun 数组渲染为 HTML
+fn render_runs_to_html(runs: &[irp::TextRun]) -> String {
+    let mut html = String::new();
+
+    for run in runs {
+        let mut text = html_escape::encode_text(&run.text).to_string();
+
+        // 应用样式标记（从内到外）
+        for mark in &run.marks {
+            match mark.mark_type {
+                irp::MarkType::Bold => {
+                    text = format!("<strong>{}</strong>", text);
+                }
+                irp::MarkType::Italic => {
+                    text = format!("<em>{}</em>", text);
+                }
+                irp::MarkType::Link => {
+                    if let Some(attrs) = &mark.attributes {
+                        if let Some(href) = attrs.get("href") {
+                            text = format!("<a href='{}'>{}</a>", html_escape::encode_text(href), text);
+                        }
+                    }
+                }
+                irp::MarkType::Code => {
+                    text = format!("<code>{}</code>", text);
+                }
+                irp::MarkType::Underline => {
+                    text = format!("<u>{}</u>", text);
+                }
+                irp::MarkType::Strikethrough => {
+                    text = format!("<s>{}</s>", text);
+                }
+            }
+        }
+
+        html.push_str(&text);
+    }
+
+    html
 }
 
 #[tauri::command]
 fn remove_book(app: AppHandle, id: i32) -> Result<(), String> {
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM books WHERE id = ?1", [id]).map_err(|e| e.to_string())?;
+
+    // 先清理资产文件
+    let asset_manager = asset_manager::AssetManager::new(app.clone());
+    asset_manager.cleanup_book_assets(id)?;
+
+    // 再删除数据库记录（外键约束会自动删除相关的 chapters, blocks, asset_mappings 等）
+    conn.execute("DELETE FROM books WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+
     Ok(())
+}
+
+/// 清理孤立的资产文件
+///
+/// 扫描 assets 目录，删除没有对应书籍的资产文件夹
+///
+/// # 返回
+/// 返回清理的资产文件夹数量
+#[tauri::command]
+fn cleanup_orphaned_assets(app: AppHandle) -> Result<u32, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+
+    let asset_manager = asset_manager::AssetManager::new(app.clone());
+    let cleaned_count = asset_manager.cleanup_orphaned_assets(&conn)?;
+
+    Ok(cleaned_count)
 }
 
 // 笔记相关的数据结构
@@ -1854,16 +1961,21 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
+            // 注册导入队列（最多 3 个并发任务）
+            app.manage(import_queue::ImportQueue::new(3));
+
             // 启动自动清理任务
             start_cleanup_task(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             upload_epub_file,
+            import_book,
             get_books,
             get_book_details,
             get_chapter_content,
             remove_book,
+            cleanup_orphaned_assets,
             create_note,
             get_notes,
             update_note,
