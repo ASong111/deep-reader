@@ -104,6 +104,59 @@ impl EpubParser {
         Ok(blocks)
     }
 
+    /// 从 HTML 内容中提取章节标题
+    ///
+    /// 优先从 h1-h6 标题标签提取，如果没有则尝试从第一个段落提取
+    fn extract_title_from_html(&self, html: &str) -> Option<String> {
+        let document = Html::parse_document(html);
+
+        // 优先查找 h1-h6 标题
+        for tag in &["h1", "h2", "h3", "h4", "h5", "h6"] {
+            if let Ok(selector) = Selector::parse(tag) {
+                if let Some(element) = document.select(&selector).next() {
+                    let text = element.text().collect::<String>().trim().to_string();
+                    if !text.is_empty() {
+                        return Some(text);
+                    }
+                }
+            }
+        }
+
+        // 如果没有标题标签，尝试从第一个段落提取
+        // 很多 EPUB 书籍的章节标题是普通段落文本
+        if let Ok(selector) = Selector::parse("p") {
+            if let Some(element) = document.select(&selector).next() {
+                let text = element.text().collect::<String>().trim().to_string();
+                // 检查是否像章节标题（包含"章"、"节"、"序"等关键字，且长度合理）
+                if !text.is_empty() && text.len() < 100 && self.looks_like_chapter_title(&text) {
+                    return Some(text);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// 判断文本是否看起来像章节标题
+    fn looks_like_chapter_title(&self, text: &str) -> bool {
+        // 检查是否包含章节相关的关键字
+        let keywords = ["章", "节", "序", "前言", "后记", "附录", "Chapter", "Section"];
+        keywords.iter().any(|&keyword| text.contains(keyword))
+    }
+
+    /// 检查 HTML 内容是否包含 h1 标题
+    ///
+    /// h1 标题通常表示主章节，而 h2-h6 表示分节
+    fn is_h1_title(&self, html: &str) -> bool {
+        let document = Html::parse_document(html);
+
+        if let Ok(selector) = Selector::parse("h1") {
+            document.select(&selector).next().is_some()
+        } else {
+            false
+        }
+    }
+
     /// 从 HTML 元素中提取 TextRun 列表
     ///
     /// 递归处理元素及其子元素，提取文本和样式标记
@@ -325,14 +378,20 @@ impl Parser for EpubParser {
             // 提取图片
             blocks = self.extract_images(blocks, &mut doc, book_id, conn)?;
 
+            // 如果没有内容，跳过
+            if blocks.is_empty() {
+                continue;
+            }
+
             total_blocks += blocks.len();
 
-            // 获取章节标题
-            let title = doc
-                .get_current_id()
-                .map(|id| id.to_string())
-                .unwrap_or_else(|| format!("章节 {}", i + 1));
+            // 尝试从 HTML 内容中提取标题
+            let title = self.extract_title_from_html(&html_content)
+                .unwrap_or_else(|| format!("第 {} 章", chapters.len() + 1));
 
+            eprintln!("EPUB 解析 - 文件 {}: 标题={}, blocks数量={}", i, title, blocks.len());
+
+            // 每个 HTML 文件都作为独立章节
             chapters.push(ChapterData {
                 title,
                 blocks,
@@ -456,5 +515,47 @@ mod tests {
         let merged = parser.merge_runs(runs);
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].text, "Hello World");
+    }
+
+    #[test]
+    fn test_extract_title_from_html() {
+        let parser = EpubParser::new();
+
+        // 测试 h1 标题
+        let html_h1 = r#"<html><body><h1>第一章</h1><p>内容</p></body></html>"#;
+        assert_eq!(parser.extract_title_from_html(html_h1), Some("第一章".to_string()));
+
+        // 测试 h2 标题
+        let html_h2 = r#"<html><body><h2>第一节</h2><p>内容</p></body></html>"#;
+        assert_eq!(parser.extract_title_from_html(html_h2), Some("第一节".to_string()));
+
+        // 测试 h3 标题
+        let html_h3 = r#"<html><body><h3>小节标题</h3><p>内容</p></body></html>"#;
+        assert_eq!(parser.extract_title_from_html(html_h3), Some("小节标题".to_string()));
+
+        // 测试没有标题（title 标签不应该被使用）
+        let html_no_title = r#"<html><head><title>书名</title></head><body><p>内容</p></body></html>"#;
+        assert_eq!(parser.extract_title_from_html(html_no_title), None);
+
+        // 测试完全没有标题
+        let html_empty = r#"<html><body><p>内容</p></body></html>"#;
+        assert_eq!(parser.extract_title_from_html(html_empty), None);
+    }
+
+    #[test]
+    fn test_is_h1_title() {
+        let parser = EpubParser::new();
+
+        // 包含 h1
+        let html_h1 = r#"<html><body><h1>第一章</h1><p>内容</p></body></html>"#;
+        assert!(parser.is_h1_title(html_h1));
+
+        // 只有 h2
+        let html_h2 = r#"<html><body><h2>第一节</h2><p>内容</p></body></html>"#;
+        assert!(!parser.is_h1_title(html_h2));
+
+        // 没有标题
+        let html_no_title = r#"<html><body><p>内容</p></body></html>"#;
+        assert!(!parser.is_h1_title(html_no_title));
     }
 }

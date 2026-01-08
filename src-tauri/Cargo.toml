@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
+default-run = "deep-reader"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -55,4 +56,8 @@ tempfile = "3.10"
 chrono = { version = "0.4", features = ["serde"] }
 # 用于 HTML 转义
 html-escape = "0.2"
+
+[[bin]]
+name = "test_epub_toc"
+path = "test_epub_toc.rs"
 
