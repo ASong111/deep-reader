@@ -62,6 +62,11 @@ impl Parser for PdfParser {
         let text = pdf_extract::extract_text_from_mem(&bytes)
             .map_err(|e| format!("PDF 解析失败: {}。可能是扫描版 PDF，暂不支持", e))?;
 
+        // 检查是否为扫描版 PDF（无文本内容）
+        if text.trim().is_empty() {
+            return Err("此 PDF 文件无法提取文本内容。\n\n可能原因：\n1. 这是扫描版 PDF（图片格式），需要 OCR 识别\n2. PDF 文件已加密或受保护\n\n建议：\n- 使用文字版 PDF\n- 或使用 OCR 工具转换后再导入".to_string());
+        }
+
         // 分割为段落块
         let blocks = self.split_into_blocks(&text);
         let total_blocks = blocks.len();

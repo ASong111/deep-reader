@@ -32,7 +32,7 @@ interface ImmersiveReaderProps {
 }
 
 const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
-  const { toasts, removeToast, showSuccess } = useToastManager();
+  const { toasts, removeToast, showSuccess, showError } = useToastManager();
   const [currentView, setCurrentView] = useState<ViewMode>('library');
   const [books, setBooks] = useState<Book[]>([]);
   const [activeBook, setActiveBook] = useState<Book | null>(null);
@@ -82,21 +82,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
   const loadBooks = useCallback(async () => {
     try {
       const backendBooks = await invoke<BackendBook[]>("get_books");
-      // 添加详细的调试信息
-      console.log("backendBooks raw: ", backendBooks);
-      console.log("backendBooks JSON: ", JSON.stringify(backendBooks, null, 2));
-      // 检查第一个元素的编码
-      if (backendBooks.length > 0) {
-        const first = backendBooks[0];
-        console.log("First book title (raw):", first.title);
-        console.log("First book title (char codes):", 
-        Array.from(first.title).map(c => c.charCodeAt(0)));
-        console.log("First book author (raw):", first.author);
-        console.log("First book author (char codes):", 
-        Array.from(first.author).map(c => c.charCodeAt(0)));
-      }
       const convertedBooks = backendBooks.map(convertBackendBookToBook);
-      console.log("convertedBooks: ", convertedBooks);
       setBooks(convertedBooks);
     } catch (e) {
       console.error("Failed to load books:", e);
@@ -106,30 +92,52 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
   // 初始化加载书籍并监听事件
   useEffect(() => {
     loadBooks();
-    const unlistenPromise = listen("book-added", () => {
+
+    // 监听书籍添加事件
+    const unlistenBookAdded = listen("book-added", () => {
       loadBooks();
     });
-    
+
+    // 监听导入进度事件
+    const unlistenProgress = listen<{book_id: number, status: string, progress: number}>("import-progress", (event) => {
+      const { status } = event.payload;
+
+      // 如果导入完成，刷新书籍列表
+      if (status === "completed") {
+        loadBooks();
+        showSuccess(`书籍导入完成！`);
+      }
+    });
+
+    // 监听导入错误事件
+    const unlistenError = listen<{book_id: number, error: string}>("import-error", (event) => {
+      console.error("导入错误:", event.payload);
+      showError(`导入失败: ${event.payload.error}`);
+      loadBooks(); // 刷新列表以显示失败状态
+    });
+
     return () => {
-      unlistenPromise.then((unlisten) => unlisten());
+      unlistenBookAdded.then((unlisten) => unlisten());
+      unlistenProgress.then((unlisten) => unlisten());
+      unlistenError.then((unlisten) => unlisten());
     };
-  }, [loadBooks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   // 导入书籍功能
   const handleImportBook = useCallback(async () => {
     setLoading(true);
     try {
-      const msg = await invoke<string>("upload_epub_file");
-      // 导入成功后会自动触发 book-added 事件，loadBooks 会被调用
-      console.log(msg);
+      await invoke<string>("upload_epub_file");
+      showSuccess("书籍已加入导入队列，正在后台处理...");
     } catch (error) {
       console.error("Upload Failed:", error);
-      alert(`导入失败: ${error}`);
+      showError(`导入失败: ${error}`);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showSuccess, showError]);
 
   // 加载书籍的章节数据
   const loadBookChapters = useCallback(async (bookId: number) => {
@@ -151,15 +159,15 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
   }, []);
 
   // 加载章节内容
-  const loadChapterContent = useCallback(async (bookId: number, chapterIndex: number) => {
+  const loadChapterContent = useCallback(async (bookId: number, chapterId: string) => {
     try {
-      const content = await invoke<string>("get_chapter_content", { 
-        bookId, 
-        chapterIndex 
+      const content = await invoke<string>("get_chapter_content", {
+        bookId: bookId,
+        chapterId: parseInt(chapterId)
       });
       return content;
     } catch (e) {
-      console.error("Failed to load chapter content:", e);
+      console.error("❌ 前端: 加载章节内容失败:", e);
       return '';
     }
   }, []);
@@ -170,14 +178,14 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
     if (book.chapters.length === 0) {
       const chapters = await loadBookChapters(book.id);
       // 更新书籍的章节列表
-      setBooks(prevBooks => 
-        prevBooks.map(b => 
+      setBooks(prevBooks =>
+        prevBooks.map(b =>
           b.id === book.id ? { ...b, chapters } : b
         )
       );
       // 加载第一个章节的内容
       if (chapters.length > 0) {
-        const firstChapterContent = await loadChapterContent(book.id, 0);
+        const firstChapterContent = await loadChapterContent(book.id, chapters[0].id);
         chapters[0].content = firstChapterContent;
         // 更新书籍数据
         const updatedBook = { ...book, chapters };
@@ -213,7 +221,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
     
     // 如果章节内容还没有加载，则加载它
     if (activeBook.chapters[index] && !activeBook.chapters[index].content) {
-      const content = await loadChapterContent(activeBook.id, index);
+      const content = await loadChapterContent(activeBook.id, activeBook.chapters[index].id);
       // 更新当前书籍的章节内容
       setActiveBook(prev => {
         if (!prev) return null;

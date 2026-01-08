@@ -9,6 +9,8 @@ use crate::parser::ParserRouter;
 use crate::db;
 use crate::irp;
 use chrono::Utc;
+use epub::doc::EpubDoc;
+use base64::{Engine as _, engine::general_purpose};
 
 /// 导入书籍（异步）
 ///
@@ -30,12 +32,39 @@ pub async fn import_book_async(app: AppHandle, file_path: String) -> Result<i32,
 
     // 检查文件格式是否支持
     let router = ParserRouter::new();
-    if !router.supports(
-        path.extension()
-            .and_then(|s| s.to_str())
-            .unwrap_or("")
-    ) {
+    let ext = path.extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+
+    if !router.supports(ext) {
         return Err("不支持的文件格式".to_string());
+    }
+
+    // 对于 PDF 文件，提前检查是否为扫描版
+    if ext == "pdf" {
+        use std::fs;
+        let bytes = fs::read(&path)
+            .map_err(|e| format!("读取文件失败: {}", e))?;
+
+        // 尝试提取文本
+        match pdf_extract::extract_text_from_mem(&bytes) {
+            Ok(text) => {
+                // 检查文本内容是否足够（至少100个字符）
+                let text_len = text.trim().chars().count();
+                if text_len < 100 {
+                    return Err(format!(
+                        "此 PDF 文件无法提取有效文本内容（仅提取到 {} 个字符）。\n\n可能原因：\n1. 这是扫描版 PDF（图片格式），需要 OCR 识别\n2. PDF 文件已加密或受保护\n3. PDF 格式不标准\n\n建议：\n- 使用文字版 PDF\n- 或使用 OCR 工具转换后再导入",
+                        text_len
+                    ));
+                }
+            }
+            Err(e) => {
+                return Err(format!(
+                    "PDF 解析失败: {}。\n\n可能原因：\n1. 这是扫描版 PDF（图片格式），需要 OCR 识别\n2. PDF 文件已加密或受保护\n3. PDF 格式损坏或不标准\n\n建议：\n- 使用文字版 PDF\n- 或使用 OCR 工具转换后再导入",
+                    e
+                ));
+            }
+        }
     }
 
     // 提取文件名作为临时标题
@@ -189,16 +218,81 @@ async fn process_single_import(app: AppHandle, task: ImportTask) -> Result<(), S
         }
     }
 
-    // 更新书籍信息
-    conn.execute(
-        "UPDATE books SET parse_status = ?1, parse_quality = ?2, total_blocks = ?3 WHERE id = ?4",
-        rusqlite::params![
-            "completed",
-            format!("{:?}", result.quality),
-            result.total_blocks,
-            task.book_id
-        ],
-    ).map_err(|e| e.to_string())?;
+    // 提取元数据和封面（仅对 EPUB 格式）
+    let (title, author, cover_base64) = if task.file_path.extension().and_then(|s| s.to_str()) == Some("epub") {
+        match EpubDoc::new(&task.file_path) {
+            Ok(mut doc) => {
+                // 提取标题
+                let title = doc.mdata("title")
+                    .map(|item| item.value.clone())
+                    .unwrap_or_else(|| {
+                        task.file_path
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("未知书籍")
+                            .to_string()
+                    });
+
+                // 提取作者
+                let author = doc.mdata("creator")
+                    .map(|item| item.value.clone())
+                    .unwrap_or_else(|| "未知作者".to_string());
+
+                // 提取封面
+                let cover = doc.get_cover()
+                    .map(|(cover_data, _)| {
+                        format!("data:image/png;base64,{}", general_purpose::STANDARD.encode(&cover_data))
+                    });
+
+                (Some(title), Some(author), cover)
+            }
+            Err(_) => (None, None, None)
+        }
+    } else {
+        (None, None, None)
+    };
+
+    // 更新书籍信息（包括标题、作者和封面）
+    match (title, author, cover_base64) {
+        (Some(t), Some(a), Some(c)) => {
+            conn.execute(
+                "UPDATE books SET title = ?1, author = ?2, parse_status = ?3, parse_quality = ?4, total_blocks = ?5, cover_image = ?6 WHERE id = ?7",
+                rusqlite::params![
+                    t,
+                    a,
+                    "completed",
+                    format!("{:?}", result.quality),
+                    result.total_blocks,
+                    c,
+                    task.book_id
+                ],
+            ).map_err(|e| e.to_string())?;
+        }
+        (Some(t), Some(a), None) => {
+            conn.execute(
+                "UPDATE books SET title = ?1, author = ?2, parse_status = ?3, parse_quality = ?4, total_blocks = ?5 WHERE id = ?6",
+                rusqlite::params![
+                    t,
+                    a,
+                    "completed",
+                    format!("{:?}", result.quality),
+                    result.total_blocks,
+                    task.book_id
+                ],
+            ).map_err(|e| e.to_string())?;
+        }
+        _ => {
+            conn.execute(
+                "UPDATE books SET parse_status = ?1, parse_quality = ?2, total_blocks = ?3 WHERE id = ?4",
+                rusqlite::params![
+                    "completed",
+                    format!("{:?}", result.quality),
+                    result.total_blocks,
+                    task.book_id
+                ],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
 
     // 发送完成事件
     app.emit("import-progress", serde_json::json!({

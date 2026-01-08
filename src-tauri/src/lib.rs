@@ -1,9 +1,7 @@
 use tauri::{AppHandle, Manager, Emitter}; // v2: use Emitter trait
 use tauri_plugin_dialog::DialogExt; // v2 插件扩展
-use std::fs;
 use std::path::PathBuf;
 use epub::doc::EpubDoc;
-use base64::{Engine as _, engine::general_purpose};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -720,12 +718,26 @@ struct ChapterInfo {
 
 // 辅助函数：获取数据库路径
 fn get_db_path(app: &AppHandle) -> PathBuf {
-    app.path().app_data_dir().expect("failed to get app data dir").join("library.db")
+    let app_data_dir = app.path().app_data_dir().expect("failed to get app data dir");
+
+    // 确保目录存在
+    if !app_data_dir.exists() {
+        std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
+    }
+
+    app_data_dir.join("library.db")
 }
 
 // 辅助函数：获取加密密钥路径
 fn get_key_path(app: &AppHandle) -> PathBuf {
-    app.path().app_data_dir().expect("failed to get app data dir").join("encryption.key")
+    let app_data_dir = app.path().app_data_dir().expect("failed to get app data dir");
+
+    // 确保目录存在
+    if !app_data_dir.exists() {
+        std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
+    }
+
+    app_data_dir.join("encryption.key")
 }
 
 // 辅助函数：获取或创建加密密钥
@@ -735,50 +747,27 @@ fn get_encryption_key(app: &AppHandle) -> Result<Vec<u8>, String> {
         .map_err(|e| format!("获取加密密钥失败: {}", e))
 }
 
-// 1. 上传文件管道：打开对话框 -> 读取 -> 上传云端 -> 存入本地 DB
+// 1. 上传文件管道：打开对话框 -> 使用异步导入流程
 #[tauri::command]
 async fn upload_epub_file(app: AppHandle) -> Result<String, String> {
-    // 1. 使用 Tauri v2 Dialog 插件打开文件选择器
-    let file_path = app.dialog().file().add_filter("EPUB", &["epub"]).blocking_pick_file();
+    // 1. 使用 Tauri v2 Dialog 插件打开文件选择器，支持多种格式
+    let file_path = app.dialog().file()
+        .add_filter("电子书", &["epub", "txt", "md", "markdown", "pdf"])
+        .blocking_pick_file();
 
     let path = match file_path {
         Some(p) => p.into_path().map_err(|e| e.to_string())?,
         None => return Err("用户取消操作".to_string()),
     };
 
-    // 4. 解析 EPUB 元数据
-    let mut doc = EpubDoc::new(&path).map_err(|e| format!("Epub 解析错误: {}", e))?;
-    let title = doc.mdata("title")
-        .map(|item| item.value.clone())
-        .unwrap_or("Unknown Title".to_string());
-    let author = doc.mdata("creator")
-        .map(|item| item.value.clone())
-        .unwrap_or("Unknown Author".to_string());
-
-    // 处理封面
-    let cover_base64 = doc.get_cover().map(|(data, _)| {
-        format!("data:image/png;base64,{}", general_purpose::STANDARD.encode(&data))
-    });
-
-    // 5. 存入 SQLite
-    // 确保目录存在
-    let db_path = get_db_path(&app);
-    if let Some(parent) = db_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-
-    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+    // 使用新的异步导入流程
     let path_str = path.to_string_lossy().to_string();
+    let book_id = async_import::import_book_async(app.clone(), path_str).await?;
 
-    conn.execute(
-        "INSERT INTO books (title, author, file_path, cover_image) VALUES (?1, ?2, ?3, ?4)",
-        (&title, &author, &path_str, &cover_base64),
-    ).map_err(|e| format!("数据库错误: {}", e))?;
+    // 发送事件通知前端刷新
+    app.emit("book-added", book_id).map_err(|e| e.to_string())?;
 
-    // 发送事件通知前端刷新 (v2 使用 .emit)
-    app.emit("book-added", &title).map_err(|e| e.to_string())?;
-
-    Ok("导入成功".to_string())
+    Ok("导入成功，正在后台处理...".to_string())
 }
 
 /// 异步导入书籍（支持多种格式）
@@ -791,18 +780,16 @@ async fn import_book(app: AppHandle, file_path: String) -> Result<i32, String> {
 
 #[tauri::command]
 fn get_books(app: AppHandle) -> Result<Vec<Book>, String> {
-    println!("get_books--------------------------------------------");
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
-    
+
     let mut stmt = conn.prepare("SELECT id, title, author, cover_image FROM books ORDER BY id DESC")
         .map_err(|e| e.to_string())?;
 
-    // println!("stmt: {:?}", &stmt);
     let book_iter = stmt.query_map([], |row| {
         let title: String = row.get(1)?;
         let author: String = row.get(2)?;
-        
+
         // 确保字符串是有效的 UTF-8（虽然 String 本身应该是）
         // 如果数据库存储有问题，这里可以尝试修复
         let title = String::from_utf8_lossy(title.as_bytes()).to_string();
@@ -818,15 +805,8 @@ fn get_books(app: AppHandle) -> Result<Vec<Book>, String> {
     let mut books = Vec::new();
     for book in book_iter {
         books.push(book.map_err(|e| e.to_string())?);
-    };
-    for book in &books {
-        println!("book: {:?} {:?} {:?}", &book.id, &book.title, &book.author);
     }
-    // 显式序列化为 JSON 查看
-    if let Ok(json_str) = serde_json::to_string(&books) {
-        println!("Serialized JSON (first 500 chars): {}", 
-            &json_str.chars().take(500).collect::<String>());
-    }
+
     Ok(books)
 }
 
