@@ -251,7 +251,7 @@ pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
     // 创建统计视图
     conn.execute(
         "CREATE VIEW IF NOT EXISTS note_analytics AS
-         SELECT 
+         SELECT
              DATE(action_time) as date,
              action_type,
              COUNT(*) as action_count,
@@ -260,7 +260,71 @@ pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
          GROUP BY DATE(action_time), action_type",
         [],
     )?;
-    
+
+    // Reading Unit 表（章节合并评分系统）
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS reading_units (
+            id TEXT PRIMARY KEY,
+            book_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            level INTEGER NOT NULL CHECK(level IN (1, 2)),
+            parent_id TEXT,
+            segment_ids TEXT NOT NULL,
+            start_block_id INTEGER NOT NULL,
+            end_block_id INTEGER NOT NULL,
+            source TEXT NOT NULL CHECK(source IN ('toc', 'heuristic')),
+            content_type TEXT CHECK(content_type IN ('frontmatter', 'body', 'backmatter')),
+            summary_text TEXT,
+            summary_generated_at INTEGER,
+            summary_model TEXT,
+            created_at INTEGER NOT NULL,
+            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+            FOREIGN KEY (parent_id) REFERENCES reading_units(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // Debug 评分数据表（开发环境）
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS debug_segment_scores (
+            segment_id TEXT PRIMARY KEY,
+            book_id INTEGER NOT NULL,
+            scores TEXT NOT NULL,
+            weights TEXT NOT NULL,
+            total_score REAL NOT NULL,
+            decision TEXT NOT NULL CHECK(decision IN ('merge', 'new')),
+            decision_reason TEXT NOT NULL,
+            fallback INTEGER NOT NULL DEFAULT 0 CHECK(fallback IN (0, 1)),
+            fallback_reason TEXT,
+            content_type TEXT CHECK(content_type IN ('frontmatter', 'body', 'backmatter')),
+            level INTEGER CHECK(level IN (1, 2)),
+            created_at INTEGER NOT NULL,
+            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // 添加 chapter_rule_version 字段到 books 表
+    let _ = conn.execute("ALTER TABLE books ADD COLUMN chapter_rule_version TEXT DEFAULT 'v1.0'", []);
+
+    // 创建 Reading Unit 相关索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_reading_units_book_id ON reading_units(book_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_reading_units_level ON reading_units(book_id, level)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_reading_units_parent_id ON reading_units(parent_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_debug_scores_book_id ON debug_segment_scores(book_id)",
+        [],
+    )?;
+
     Ok(conn)
 }
 

@@ -701,6 +701,7 @@ mod asset_manager;
 mod parser;
 mod import_queue;
 mod async_import;
+mod reading_unit;
 
 #[derive(Serialize, Debug)]
 struct Book {
