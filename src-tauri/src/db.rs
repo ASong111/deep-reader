@@ -38,6 +38,10 @@ pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
         [],
     )?;
 
+    // 添加新字段到 chapters 表（用于混合渲染模式）
+    let _ = conn.execute("ALTER TABLE chapters ADD COLUMN raw_html TEXT", []);
+    let _ = conn.execute("ALTER TABLE chapters ADD COLUMN render_mode TEXT DEFAULT 'irp'", []);
+
     // 内容块表（IRP 架构）
     conn.execute(
         "CREATE TABLE IF NOT EXISTS blocks (

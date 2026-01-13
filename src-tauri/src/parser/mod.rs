@@ -34,6 +34,10 @@ pub struct ChapterData {
     pub blocks: Vec<BlockData>,
     /// 章节识别置信度：explicit（显式）、inferred（推断）、linear（线性）
     pub confidence: String,
+    /// 原始 HTML 内容（可选，用于 EPUB 等格式）
+    pub raw_html: Option<String>,
+    /// 渲染模式："html" 或 "irp"
+    pub render_mode: String,
 }
 
 /// 内容块数据
@@ -276,11 +280,14 @@ mod tests {
             title: "第一章".to_string(),
             blocks: vec![],
             confidence: "explicit".to_string(),
+            raw_html: None,
+            render_mode: "irp".to_string(),
         };
 
         assert_eq!(chapter.title, "第一章");
         assert_eq!(chapter.blocks.len(), 0);
         assert_eq!(chapter.confidence, "explicit");
+        assert_eq!(chapter.render_mode, "irp");
     }
 
     #[test]

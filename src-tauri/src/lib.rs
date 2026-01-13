@@ -717,6 +717,12 @@ struct ChapterInfo {
     id: String,
 }
 
+#[derive(Serialize)]
+struct ChapterContentResponse {
+    content: String,
+    render_mode: String,
+}
+
 // 辅助函数：获取数据库路径
 fn get_db_path(app: &AppHandle) -> PathBuf {
     let app_data_dir = app.path().app_data_dir().expect("failed to get app data dir");
@@ -862,6 +868,67 @@ fn extract_plain_text(html: &str) -> String {
     whitespace_regex.replace_all(&text, " ").trim().to_string()
 }
 
+/// 从章节提取纯文本（用于 AI 和搜索）
+///
+/// 根据 render_mode 选择不同的提取方式：
+/// - html: 从 HTML 中提取纯文本
+/// - markdown: 从 Markdown 中提取纯文本
+/// - irp: 从 blocks 中提取纯文本
+fn extract_chapter_plain_text(app: &AppHandle, chapter_id: i32) -> Result<String, String> {
+    let db_path = get_db_path(app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+
+    // 获取章节信息
+    let chapter = irp::get_chapter_by_id(&conn, chapter_id)
+        .map_err(|e| e.to_string())?;
+
+    match chapter.render_mode.as_str() {
+        "html" => {
+            // 从 HTML 提取纯文本
+            if let Some(html) = chapter.raw_html {
+                Ok(extract_plain_text(&html))
+            } else {
+                Err("HTML 内容为空".to_string())
+            }
+        }
+        "markdown" => {
+            // 从 Markdown 提取纯文本（简单去除 Markdown 语法）
+            if let Some(md) = chapter.raw_html {
+                // 简单的 Markdown 清理
+                let text = md
+                    .lines()
+                    .map(|line| {
+                        // 去除标题标记
+                        let line = line.trim_start_matches('#').trim();
+                        // 去除代码块标记
+                        if line.starts_with("```") {
+                            ""
+                        } else {
+                            line
+                        }
+                    })
+                    .filter(|line| !line.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                Ok(text)
+            } else {
+                Err("Markdown 内容为空".to_string())
+            }
+        }
+        _ => {
+            // 从 IRP blocks 提取纯文本
+            let blocks = irp::get_blocks_by_chapter(&conn, chapter_id)
+                .map_err(|e| e.to_string())?;
+            let text = blocks
+                .iter()
+                .map(|block| irp::extract_plain_text_from_runs(&block.runs))
+                .collect::<Vec<_>>()
+                .join(" ");
+            Ok(text)
+        }
+    }
+}
+
 // 获取章节的纯文本内容（用于 AI 上下文）
 fn get_chapter_plain_text(app: &AppHandle, book_id: i32, chapter_index: usize) -> Result<String, String> {
     let db_path = get_db_path(app);
@@ -881,18 +948,36 @@ fn get_chapter_plain_text(app: &AppHandle, book_id: i32, chapter_index: usize) -
 }
 
 #[tauri::command]
-fn get_chapter_content(app: AppHandle, _book_id: i32, chapter_id: i32) -> Result<String, String> {
+fn get_chapter_content(app: AppHandle, _book_id: i32, chapter_id: i32) -> Result<ChapterContentResponse, String> {
     let db_path = get_db_path(&app);
     let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
 
-    // 获取该章节的所有 blocks
-    let blocks = irp::get_blocks_by_chapter(&conn, chapter_id)
+    // 获取章节信息
+    let chapter = irp::get_chapter_by_id(&conn, chapter_id)
         .map_err(|e| e.to_string())?;
 
-    // 将 blocks 转换为 HTML
-    let html = render_blocks_to_html(&blocks, &app)?;
+    // 根据 render_mode 决定返回内容
+    let content = match chapter.render_mode.as_str() {
+        "html" => {
+            // 返回原始 HTML（用于 EPUB）
+            chapter.raw_html.unwrap_or_default()
+        }
+        "markdown" => {
+            // 返回原始 Markdown（用于 MD）
+            chapter.raw_html.unwrap_or_default()
+        }
+        _ => {
+            // 从 blocks 生成 HTML（用于 TXT、PDF）
+            let blocks = irp::get_blocks_by_chapter(&conn, chapter_id)
+                .map_err(|e| e.to_string())?;
+            render_blocks_to_html(&blocks, &app)?
+        }
+    };
 
-    Ok(html)
+    Ok(ChapterContentResponse {
+        content,
+        render_mode: chapter.render_mode,
+    })
 }
 
 /// 将 IRP blocks 渲染为 HTML

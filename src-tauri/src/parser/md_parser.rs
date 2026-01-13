@@ -66,6 +66,8 @@ impl MarkdownParser {
                             title: current_text.clone(),
                             blocks: Vec::new(),
                             confidence: "explicit".to_string(),
+                            raw_html: None,
+                            render_mode: "irp".to_string(),
                         });
                     } else {
                         // H3-H6 作为标题块
@@ -219,6 +221,8 @@ impl MarkdownParser {
                 title: "全文".to_string(),
                 blocks: Vec::new(),
                 confidence: "linear".to_string(),
+                raw_html: None,
+                render_mode: "irp".to_string(),
             });
         }
 
@@ -248,8 +252,8 @@ impl Parser for MarkdownParser {
         let content = fs::read_to_string(file_path)
             .map_err(|e| format!("读取文件失败: {}", e))?;
 
-        // 解析 Markdown
-        let chapters = self.parse_markdown(&content)?;
+        // 按 H1/H2 标题分割 Markdown 内容
+        let chapters = self.split_markdown_by_headings(&content)?;
         let total_blocks = chapters.iter().map(|c| c.blocks.len()).sum();
 
         Ok(ParseResult {
@@ -265,6 +269,83 @@ impl Parser for MarkdownParser {
 
     fn supported_extensions(&self) -> Vec<&str> {
         vec!["md", "markdown"]
+    }
+}
+
+impl MarkdownParser {
+    /// 按 H1/H2 标题分割 Markdown 内容
+    ///
+    /// 保留原始 Markdown 内容，用于前端渲染
+    fn split_markdown_by_headings(&self, content: &str) -> Result<Vec<ChapterData>, String> {
+        let mut chapters = Vec::new();
+        let lines: Vec<&str> = content.lines().collect();
+        let mut current_chapter_lines = Vec::new();
+        let mut current_title = String::new();
+        let mut in_chapter = false;
+
+        for line in lines {
+            // 检查是否是 H1 或 H2 标题
+            if line.starts_with("# ") || line.starts_with("## ") {
+                // 保存上一个章节
+                if in_chapter && !current_chapter_lines.is_empty() {
+                    let chapter_content = current_chapter_lines.join("\n");
+
+                    chapters.push(ChapterData {
+                        title: current_title.clone(),
+                        blocks: Vec::new(), // Markdown 不需要生成 IRP blocks
+                        confidence: "explicit".to_string(),
+                        raw_html: Some(chapter_content),
+                        render_mode: "markdown".to_string(),
+                    });
+                    current_chapter_lines.clear();
+                }
+
+                // 开始新章节
+                current_title = line.trim_start_matches('#').trim().to_string();
+                current_chapter_lines.push(line);
+                in_chapter = true;
+            } else {
+                // 添加到当前章节
+                if in_chapter {
+                    current_chapter_lines.push(line);
+                } else {
+                    // 如果还没有遇到标题，先收集内容
+                    current_chapter_lines.push(line);
+                }
+            }
+        }
+
+        // 保存最后一个章节
+        if !current_chapter_lines.is_empty() {
+            let chapter_content = current_chapter_lines.join("\n");
+
+            let title = if in_chapter && !current_title.is_empty() {
+                current_title
+            } else {
+                "全文".to_string()
+            };
+
+            chapters.push(ChapterData {
+                title,
+                blocks: Vec::new(), // Markdown 不需要生成 IRP blocks
+                confidence: if in_chapter { "explicit".to_string() } else { "linear".to_string() },
+                raw_html: Some(chapter_content),
+                render_mode: "markdown".to_string(),
+            });
+        }
+
+        // 如果没有章节，创建一个默认章节
+        if chapters.is_empty() {
+            chapters.push(ChapterData {
+                title: "全文".to_string(),
+                blocks: Vec::new(), // Markdown 不需要生成 IRP blocks
+                confidence: "linear".to_string(),
+                raw_html: Some(content.to_string()),
+                render_mode: "markdown".to_string(),
+            });
+        }
+
+        Ok(chapters)
     }
 }
 

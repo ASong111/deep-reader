@@ -1,6 +1,8 @@
 import { memo, useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { Highlighter, Underline, StickyNote, X, ChevronRight, Sparkles } from 'lucide-react';
 import DOMPurify from 'dompurify';
+// import ReactMarkdown from 'react-markdown';
+// import remarkGfm from 'remark-gfm';
 import { Chapter, ThemeMode } from './types';
 import { Note } from '../../types/notes';
 
@@ -131,30 +133,35 @@ const ReaderContent = memo(({
 
   // 使用 useMemo 处理标注渲染
   const renderedContent = useMemo(() => {
+    // 如果是 Markdown 模式，不处理标注（Markdown 会自己渲染）
+    if (chapter.renderMode === 'markdown') {
+      return chapter.content;
+    }
+
     let content = DOMPurify.sanitize(chapter.content);
     if (!notes || notes.length === 0) {
       return content;
     }
 
     // 按文本长度降序排序，防止短匹配破坏长匹配的 HTML 结构
-    const sortedNotes = [...notes].sort((a, b) => 
+    const sortedNotes = [...notes].sort((a, b) =>
       (b.highlighted_text?.length || 0) - (a.highlighted_text?.length || 0)
     );
 
     let replacedCount = 0;
     sortedNotes.forEach(note => {
       if (!note.highlighted_text) return;
-      
+
       const type = note.annotation_type || 'highlight';
-      const className = type === 'highlight' 
+      const className = type === 'highlight'
         ? 'text-highlight bg-yellow-200 dark:bg-yellow-800/50 px-0.5 rounded cursor-pointer transition-colors duration-200'
         : 'text-underline underline decoration-2 decoration-blue-500/50 dark:decoration-blue-400/50 cursor-pointer hover:decoration-blue-500 transition-all duration-200';
-      
+
       // 改进匹配逻辑：转义正则特殊字符，并允许灵活的空白字符匹配
       const escapedText = note.highlighted_text
         .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         .replace(/\s+/g, '\\s+');
-      
+
       // 匹配不在标签属性中的文本（防止破坏 HTML 标签）
       const regex = new RegExp(`(?![^<]*>)(${escapedText})`, 'g');
       const beforeReplace = content;
@@ -165,7 +172,7 @@ const ReaderContent = memo(({
     });
 
     return content;
-  }, [chapter.content, notes]);
+  }, [chapter.content, chapter.renderMode, notes]);
 
   // 自动滚动到指定笔记位置
   useEffect(() => {
@@ -543,13 +550,20 @@ const ReaderContent = memo(({
             ></div>
           </div>
 
-          {/* Chapter Content - 使用MemoizedContent防止DOM节点被替换 */}
-          <MemoizedContent
-            htmlContent={renderedContent}
-            isDark={isDark}
-            contentRef={contentRef}
-            onNoteClick={onNoteClick}
-          />
+          {/* Chapter Content - 根据 renderMode 选择渲染方式 */}
+          {chapter.renderMode === 'markdown' ? (
+            <div className="markdown-content">
+              {/* TODO: 安装 react-markdown 后启用 Markdown 渲染 */}
+              <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderedContent) }} />
+            </div>
+          ) : (
+            <MemoizedContent
+              htmlContent={renderedContent}
+              isDark={isDark}
+              contentRef={contentRef}
+              onNoteClick={onNoteClick}
+            />
+          )}
         </article>
 
         {/* 下一章按钮 */}
@@ -590,6 +604,131 @@ const ReaderContent = memo(({
         }
         .annotation-success {
           animation: successPulse 0.3s ease-in-out;
+        }
+
+        /* EPUB 内容样式 */
+        .reader-content p {
+          margin-bottom: 1em;
+          line-height: 1.8;
+        }
+        .reader-content h1, .reader-content h2, .reader-content h3,
+        .reader-content h4, .reader-content h5, .reader-content h6 {
+          margin-top: 1.5em;
+          margin-bottom: 0.5em;
+          font-weight: bold;
+        }
+        .reader-content h1 { font-size: 2em; }
+        .reader-content h2 { font-size: 1.5em; }
+        .reader-content h3 { font-size: 1.17em; }
+        .reader-content img {
+          max-width: 100%;
+          height: auto;
+          display: block;
+          margin: 1em auto;
+        }
+        .reader-content blockquote {
+          margin: 1em 2em;
+          padding-left: 1em;
+          border-left: 3px solid ${isDark ? '#8B7355' : '#A67C52'};
+          font-style: italic;
+        }
+        .reader-content code {
+          background-color: ${isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'};
+          padding: 0.2em 0.4em;
+          border-radius: 3px;
+          font-family: monospace;
+        }
+        .reader-content pre {
+          background-color: ${isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)'};
+          padding: 1em;
+          border-radius: 5px;
+          overflow-x: auto;
+        }
+        .reader-content ul, .reader-content ol {
+          margin: 1em 0;
+          padding-left: 2em;
+        }
+        .reader-content li {
+          margin: 0.5em 0;
+        }
+
+        /* Markdown 内容样式 */
+        .markdown-content {
+          font-family: Arial, sans-serif;
+          line-height: 1.8;
+          color: ${isDark ? '#E8DDD0' : '#3E3530'};
+        }
+        .markdown-content p {
+          margin-bottom: 1em;
+        }
+        .markdown-content h1, .markdown-content h2, .markdown-content h3,
+        .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+          margin-top: 1.5em;
+          margin-bottom: 0.5em;
+          font-weight: bold;
+          color: ${isDark ? '#E8DDD0' : '#3E3530'};
+        }
+        .markdown-content h1 { font-size: 2em; }
+        .markdown-content h2 { font-size: 1.5em; }
+        .markdown-content h3 { font-size: 1.17em; }
+        .markdown-content img {
+          max-width: 100%;
+          height: auto;
+          display: block;
+          margin: 1em auto;
+        }
+        .markdown-content blockquote {
+          margin: 1em 2em;
+          padding-left: 1em;
+          border-left: 3px solid ${isDark ? '#8B7355' : '#A67C52'};
+          font-style: italic;
+          color: ${isDark ? '#B8A895' : '#6B5D52'};
+        }
+        .markdown-content code {
+          background-color: ${isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'};
+          padding: 0.2em 0.4em;
+          border-radius: 3px;
+          font-family: monospace;
+          font-size: 0.9em;
+        }
+        .markdown-content pre {
+          background-color: ${isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)'};
+          padding: 1em;
+          border-radius: 5px;
+          overflow-x: auto;
+          margin: 1em 0;
+        }
+        .markdown-content pre code {
+          background-color: transparent;
+          padding: 0;
+        }
+        .markdown-content ul, .markdown-content ol {
+          margin: 1em 0;
+          padding-left: 2em;
+        }
+        .markdown-content li {
+          margin: 0.5em 0;
+        }
+        .markdown-content a {
+          color: ${isDark ? '#8B7355' : '#A67C52'};
+          text-decoration: underline;
+        }
+        .markdown-content a:hover {
+          color: ${isDark ? '#9A8164' : '#B58A61'};
+        }
+        .markdown-content table {
+          border-collapse: collapse;
+          width: 100%;
+          margin: 1em 0;
+        }
+        .markdown-content th, .markdown-content td {
+          border: 1px solid ${isDark ? '#4A3D35' : '#D4C8B8'};
+          padding: 0.5em;
+          text-align: left;
+        }
+        .markdown-content th {
+          background-color: ${isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)'};
+          font-weight: bold;
         }
       `}</style>
     </section>

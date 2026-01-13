@@ -2,6 +2,7 @@ export interface Chapter {
   id: string;
   title: string;
   content: string;
+  renderMode?: string | undefined; // "html", "markdown", "irp"
 }
 
 export interface Book {

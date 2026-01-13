@@ -42,6 +42,8 @@ pub struct Chapter {
     pub title: String,
     pub chapter_index: i32,
     pub confidence_level: String, // "explicit", "inferred", "linear"
+    pub raw_html: Option<String>, // 原始 HTML（用于 EPUB 等格式）
+    pub render_mode: String,       // "html" 或 "irp"
 }
 
 /// 内容块
@@ -65,10 +67,23 @@ pub fn create_chapter(
     index: i32,
     confidence: &str,
 ) -> Result<i64> {
+    create_chapter_with_html(conn, book_id, title, index, confidence, None, "irp")
+}
+
+/// 创建章节（支持原始 HTML）
+pub fn create_chapter_with_html(
+    conn: &Connection,
+    book_id: i32,
+    title: &str,
+    index: i32,
+    confidence: &str,
+    raw_html: Option<&str>,
+    render_mode: &str,
+) -> Result<i64> {
     conn.execute(
-        "INSERT INTO chapters (book_id, title, chapter_index, confidence_level)
-         VALUES (?1, ?2, ?3, ?4)",
-        rusqlite::params![book_id, title, index, confidence],
+        "INSERT INTO chapters (book_id, title, chapter_index, confidence_level, raw_html, render_mode)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![book_id, title, index, confidence, raw_html, render_mode],
     )?;
     Ok(conn.last_insert_rowid())
 }
@@ -76,7 +91,7 @@ pub fn create_chapter(
 /// 获取书籍的所有章节
 pub fn get_chapters_by_book(conn: &Connection, book_id: i32) -> Result<Vec<Chapter>> {
     let mut stmt = conn.prepare(
-        "SELECT id, book_id, title, chapter_index, confidence_level
+        "SELECT id, book_id, title, chapter_index, confidence_level, raw_html, render_mode
          FROM chapters WHERE book_id = ?1 ORDER BY chapter_index",
     )?;
 
@@ -88,6 +103,8 @@ pub fn get_chapters_by_book(conn: &Connection, book_id: i32) -> Result<Vec<Chapt
                 title: row.get(2)?,
                 chapter_index: row.get(3)?,
                 confidence_level: row.get(4)?,
+                raw_html: row.get(5)?,
+                render_mode: row.get(6).unwrap_or_else(|_| "irp".to_string()),
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -98,7 +115,7 @@ pub fn get_chapters_by_book(conn: &Connection, book_id: i32) -> Result<Vec<Chapt
 /// 获取单个章节
 pub fn get_chapter_by_id(conn: &Connection, chapter_id: i32) -> Result<Chapter> {
     conn.query_row(
-        "SELECT id, book_id, title, chapter_index, confidence_level
+        "SELECT id, book_id, title, chapter_index, confidence_level, raw_html, render_mode
          FROM chapters WHERE id = ?1",
         [chapter_id],
         |row| {
@@ -108,6 +125,8 @@ pub fn get_chapter_by_id(conn: &Connection, chapter_id: i32) -> Result<Chapter> 
                 title: row.get(2)?,
                 chapter_index: row.get(3)?,
                 confidence_level: row.get(4)?,
+                raw_html: row.get(5)?,
+                render_mode: row.get(6).unwrap_or_else(|_| "irp".to_string()),
             })
         },
     )

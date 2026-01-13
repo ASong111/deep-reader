@@ -372,30 +372,19 @@ impl Parser for EpubParser {
 
             let (html_content, _mime) = content.unwrap();
 
-            // 解析 HTML 为 Blocks
-            let mut blocks = self.parse_html_to_blocks(&html_content)?;
-
-            // 提取图片
-            blocks = self.extract_images(blocks, &mut doc, book_id, conn)?;
-
-            // 如果没有内容，跳过
-            if blocks.is_empty() {
-                continue;
-            }
-
-            total_blocks += blocks.len();
-
             // 尝试从 HTML 内容中提取标题
             let title = self.extract_title_from_html(&html_content)
                 .unwrap_or_else(|| format!("第 {} 章", chapters.len() + 1));
 
-            eprintln!("EPUB 解析 - 文件 {}: 标题={}, blocks数量={}", i, title, blocks.len());
+            eprintln!("EPUB 解析 - 文件 {}: 标题={}", i, title);
 
-            // 每个 HTML 文件都作为独立章节
+            // EPUB 只保存原始 HTML，不生成 IRP blocks
             chapters.push(ChapterData {
                 title,
-                blocks,
+                blocks: Vec::new(), // 空的 blocks，不需要生成
                 confidence: "explicit".to_string(),
+                raw_html: Some(html_content.clone()),
+                render_mode: "html".to_string(),
             });
         }
 

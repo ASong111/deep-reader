@@ -233,6 +233,8 @@ impl ChapterDetector {
             title: "全文".to_string(),
             blocks: blocks.to_vec(),
             confidence: "linear".to_string(),
+            raw_html: None,
+            render_mode: "irp".to_string(),
         }]
     }
 
@@ -263,6 +265,8 @@ impl ChapterDetector {
                     title: info.title.clone(),
                     blocks: blocks[start..end].to_vec(),
                     confidence: info.confidence.clone(),
+                    raw_html: None,
+                    render_mode: "irp".to_string(),
                 });
             }
         }
@@ -273,6 +277,8 @@ impl ChapterDetector {
                 title: "全文".to_string(),
                 blocks: blocks.to_vec(),
                 confidence: "linear".to_string(),
+                raw_html: None,
+                render_mode: "irp".to_string(),
             });
         }
 

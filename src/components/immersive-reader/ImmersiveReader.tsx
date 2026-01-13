@@ -149,6 +149,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
         id: info.id,
         title: info.title,
         content: '', // 内容懒加载
+        renderMode: '' as string | undefined, // 渲染模式在加载内容时设置
       }));
 
       return chapters;
@@ -161,14 +162,14 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
   // 加载章节内容
   const loadChapterContent = useCallback(async (bookId: number, chapterId: string) => {
     try {
-      const content = await invoke<string>("get_chapter_content", {
+      const response = await invoke<{content: string, render_mode: string}>("get_chapter_content", {
         bookId: bookId,
         chapterId: parseInt(chapterId)
       });
-      return content;
+      return response;
     } catch (e) {
       console.error("❌ 前端: 加载章节内容失败:", e);
-      return '';
+      return { content: '', render_mode: 'irp' };
     }
   }, []);
 
@@ -185,8 +186,12 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
       );
       // 加载第一个章节的内容
       if (chapters.length > 0) {
-        const firstChapterContent = await loadChapterContent(book.id, chapters[0].id);
-        chapters[0].content = firstChapterContent;
+        const response = await loadChapterContent(book.id, chapters[0].id);
+        chapters[0] = {
+          ...chapters[0],
+          content: response.content,
+          renderMode: response.render_mode as string | undefined
+        };
         // 更新书籍数据
         const updatedBook = { ...book, chapters };
         setActiveBook(updatedBook);
@@ -221,20 +226,24 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
     
     // 如果章节内容还没有加载，则加载它
     if (activeBook.chapters[index] && !activeBook.chapters[index].content) {
-      const content = await loadChapterContent(activeBook.id, activeBook.chapters[index].id);
+      const response = await loadChapterContent(activeBook.id, activeBook.chapters[index].id);
       // 更新当前书籍的章节内容
       setActiveBook(prev => {
         if (!prev) return null;
         const updatedChapters = [...prev.chapters];
-        updatedChapters[index] = { ...updatedChapters[index], content };
+        updatedChapters[index] = {
+          ...updatedChapters[index],
+          content: response.content,
+          renderMode: response.render_mode as string | undefined
+        };
         return { ...prev, chapters: updatedChapters };
       });
       // 同时更新 books 列表中的对应书籍
-      setBooks(prevBooks => 
-        prevBooks.map(b => 
-          b.id === activeBook.id 
-            ? { ...b, chapters: b.chapters.map((ch, i) => 
-                i === index ? { ...ch, content } : ch
+      setBooks(prevBooks =>
+        prevBooks.map(b =>
+          b.id === activeBook.id
+            ? { ...b, chapters: b.chapters.map((ch, i) =>
+                i === index ? { ...ch, content: response.content, renderMode: response.render_mode as string | undefined } : ch
               ) }
             : b
         )
