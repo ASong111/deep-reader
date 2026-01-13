@@ -1932,6 +1932,109 @@ fn start_cleanup_task(app: AppHandle) {
     });
 }
 
+// 获取书籍的 Debug 数据
+#[tauri::command]
+fn get_debug_data(app: AppHandle, book_id: i32) -> Result<Vec<reading_unit::DebugSegmentScore>, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+
+    let mut stmt = conn.prepare(
+        "SELECT segment_id, scores, weights, total_score, decision, decision_reason,
+                fallback, fallback_reason, content_type, level
+         FROM debug_segment_scores
+         WHERE book_id = ?1
+         ORDER BY segment_id"
+    ).map_err(|e| e.to_string())?;
+
+    let debug_data = stmt.query_map([book_id], |row| {
+        let scores_json: String = row.get(1)?;
+        let weights_json: String = row.get(2)?;
+        let decision_str: String = row.get(4)?;
+        let content_type_str: Option<String> = row.get(8)?;
+
+        let scores: HashMap<String, f64> = serde_json::from_str(&scores_json)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        let weights: HashMap<String, f64> = serde_json::from_str(&weights_json)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+
+        let decision = match decision_str.as_str() {
+            "merge" => reading_unit::MergeDecision::Merge,
+            "createnew" => reading_unit::MergeDecision::CreateNew,
+            _ => reading_unit::MergeDecision::Merge,
+        };
+
+        let content_type = content_type_str.and_then(|s| match s.as_str() {
+            "frontmatter" => Some(reading_unit::ContentType::Frontmatter),
+            "body" => Some(reading_unit::ContentType::Body),
+            "backmatter" => Some(reading_unit::ContentType::Backmatter),
+            _ => None,
+        });
+
+        Ok(reading_unit::DebugSegmentScore {
+            segment_id: row.get(0)?,
+            scores,
+            weights,
+            total_score: row.get(3)?,
+            decision,
+            decision_reason: row.get(5)?,
+            fallback: row.get::<_, i32>(6)? == 1,
+            fallback_reason: row.get(7)?,
+            content_type,
+            level: row.get(9)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
+    Ok(debug_data)
+}
+
+// 获取书籍的 Reading Units
+#[tauri::command]
+fn get_reading_units(app: AppHandle, book_id: i32) -> Result<Vec<reading_unit::ReadingUnit>, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+
+    let mut stmt = conn.prepare(
+        "SELECT id, book_id, title, level, parent_id, segment_ids,
+                start_block_id, end_block_id, source, content_type
+         FROM reading_units
+         WHERE book_id = ?1
+         ORDER BY start_block_id"
+    ).map_err(|e| e.to_string())?;
+
+    let reading_units = stmt.query_map([book_id], |row| {
+        let segment_ids_json: String = row.get(5)?;
+        let content_type_str: Option<String> = row.get(9)?;
+
+        let segment_ids: Vec<String> = serde_json::from_str(&segment_ids_json)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+
+        let content_type = content_type_str.and_then(|s| match s.as_str() {
+            "frontmatter" => Some(reading_unit::ContentType::Frontmatter),
+            "body" => Some(reading_unit::ContentType::Body),
+            "backmatter" => Some(reading_unit::ContentType::Backmatter),
+            _ => None,
+        });
+
+        Ok(reading_unit::ReadingUnit {
+            id: row.get(0)?,
+            book_id: row.get(1)?,
+            title: row.get(2)?,
+            level: row.get(3)?,
+            parent_id: row.get(4)?,
+            segment_ids,
+            start_block_id: row.get(6)?,
+            end_block_id: row.get(7)?,
+            source: row.get(8)?,
+            content_type,
+            summary: None,
+        })
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
+    Ok(reading_units)
+}
+
 // 核心入口配置
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -1983,6 +2086,8 @@ pub fn run() {
             call_ai_assistant,
             explain_text,
             chat_with_ai,
+            get_debug_data,
+            get_reading_units,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

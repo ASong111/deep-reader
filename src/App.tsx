@@ -3,10 +3,12 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import DOMPurify from "dompurify";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, Bug } from "lucide-react";
 // 导入沉浸式阅读器组件
 import ImmersiveReader from "./components/immersive-reader/ImmersiveReader";
 import { ThemeMode } from "./components/immersive-reader/types";
+// 导入 Debug 面板
+import ReadingUnitDebugger from "./components/debug/ReadingUnitDebugger";
 
 interface Book {
   id: number;
@@ -29,6 +31,9 @@ function App() {
   // 添加状态来切换 UI 模式
   const [useImmersiveUI, setUseImmersiveUI] = useState(true);
   const [theme, setTheme] = useState<ThemeMode>('light');
+  // Debug 模式状态
+  const [debugMode, setDebugMode] = useState(false);
+  const [debugBookId, setDebugBookId] = useState<number | null>(null);
 
   const isDark = theme === 'dark';
 
@@ -206,8 +211,8 @@ function App() {
                     key={book.id}
                     onClick={() => handleBookClick(book.id)}
                     className={`p-3 rounded-lg border shadow-sm cursor-pointer transition-all flex items-start group ${
-                      isDark 
-                        ? 'bg-[#4A3D35] border-[#524439] hover:shadow-md hover:border-[#8B7355]' 
+                      isDark
+                        ? 'bg-[#4A3D35] border-[#524439] hover:shadow-md hover:border-[#8B7355]'
                         : 'bg-white border-gray-100 hover:shadow-md hover:border-indigo-100'
                     }`}
                   >
@@ -224,13 +229,29 @@ function App() {
                         }`}>{book.author}</p>
                       </div>
                     </div>
-                    <button 
-                        onClick={(e) => handleRemove(e, book.id)}
-                        className={`hover:text-red-500 opacity-0 group-hover:opacity-100 p-1 ${
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDebugBookId(book.id);
+                          setDebugMode(true);
+                        }}
+                        className={`p-1 hover:text-blue-500 ${
                           isDark ? 'text-[#8B7355]' : 'text-gray-300'
-                        }`}>
+                        }`}
+                        title="Debug 面板"
+                      >
+                        <Bug className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => handleRemove(e, book.id)}
+                        className={`hover:text-red-500 p-1 ${
+                          isDark ? 'text-[#8B7355]' : 'text-gray-300'
+                        }`}
+                      >
                         &times;
-                    </button>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -301,7 +322,24 @@ function App() {
 
   return (
     <>
-      {mainContent}
+      {debugMode && debugBookId ? (
+        <div className="fixed inset-0 z-50 bg-white">
+          <div className="absolute top-4 left-4 z-10">
+            <button
+              onClick={() => {
+                setDebugMode(false);
+                setDebugBookId(null);
+              }}
+              className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
+            >
+              <span>&larr;</span> 返回
+            </button>
+          </div>
+          <ReadingUnitDebugger bookId={debugBookId} />
+        </div>
+      ) : (
+        mainContent
+      )}
       {/* 全局主题切换按钮 */}
       <button
         onClick={toggleTheme}
