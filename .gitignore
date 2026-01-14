@@ -11,6 +11,13 @@ node_modules
 dist
 dist-ssr
 *.local
+deepreader.png
+/src-tauri/icons*
+
+# Test files
+*.epub
+*.pdf
+*.mobi
 
 # Editor directories and files
 .vscode/*

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BookOpen, ArrowLeft, Plus, BarChart3, ChevronLeft, Menu } from 'lucide-react';
+import { BookOpen, ArrowLeft, Plus, BarChart3 } from 'lucide-react';
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Book, ViewMode, ThemeMode } from './types';
+import { Book, ViewMode, ThemeMode, Chapter } from './types';
 import { Note, Category, Tag } from '../../types/notes';
 import BookCard from './BookCard';
 import ChapterList from './ChapterList';
@@ -251,14 +251,41 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
     }
   }, [activeBook, loadChapterContent]);
 
-  // 跳转到下一章
+  // 检测重复章节（与 ChapterList 中的逻辑一致）
+  const isDuplicateChapter = useCallback((index: number, chapters: Chapter[]): boolean => {
+    if (index === 0 || index >= chapters.length) return false;
+
+    const current = chapters[index];
+    const previous = chapters[index - 1];
+
+    // 如果当前章节和前一个章节的内容完全相同，则认为是重复
+    if (current.content === previous.content) {
+      // 简单的层级判断
+      const currentIsSection = /^(第[一二三四五六七八九十百千\d]+节|Section\s+\d+)/.test(current.title);
+      const previousIsChapter = /^(第[一二三四五六七八九十百千\d]+章|Chapter\s+\d+)/.test(previous.title);
+
+      if (previousIsChapter && currentIsSection) {
+        return true;
+      }
+    }
+
+    return false;
+  }, []);
+
+  // 跳转到下一章（跳过重复章节）
   const handleNextChapter = useCallback(() => {
     if (!activeBook) return;
-    const nextIndex = activeChapterIndex + 1;
+    let nextIndex = activeChapterIndex + 1;
+
+    // 跳过重复章节
+    while (nextIndex < activeBook.chapters.length && isDuplicateChapter(nextIndex, activeBook.chapters)) {
+      nextIndex++;
+    }
+
     if (nextIndex < activeBook.chapters.length) {
       handleChapterClick(nextIndex);
     }
-  }, [activeBook, activeChapterIndex, handleChapterClick]);
+  }, [activeBook, activeChapterIndex, handleChapterClick, isDuplicateChapter]);
 
   // 加载分类和标签
   const loadCategoriesAndTags = useCallback(async () => {
@@ -797,81 +824,53 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
             />
           </div>
 
-          {/* 中间左侧：章节列表 (15% / 0%) */}
-          <aside 
-            className={`border-r overflow-hidden ${
-              isChapterListVisible ? 'w-[15%]' : 'w-0'
+          {/* 中间左侧：章节列表 - 悬停展开 */}
+          <aside
+            className={`border-r overflow-hidden fixed left-[20%] top-0 h-full z-30 ${
+              isChapterListVisible ? 'w-64' : 'w-0'
             }`}
             style={{
               backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
               borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8',
-              transition: 'width 300ms ease-in-out'
+              transition: 'width 300ms ease-in-out',
+              boxShadow: isChapterListVisible ? '2px 0 8px rgba(0,0,0,0.1)' : 'none'
             }}
+            onMouseLeave={() => setIsChapterListVisible(false)}
           >
-            <div 
+            <div
               className={`h-full overflow-y-auto ${
                 isChapterListVisible ? 'opacity-100' : 'opacity-0'
               }`}
               style={{ transition: 'opacity 300ms' }}
             >
-              <div className="relative h-full">
-                {/* 收起按钮 */}
-                <button
-                  onClick={() => setIsChapterListVisible(false)}
-                  className="absolute top-4 right-2 z-10 p-1.5 rounded transition-colors"
-                  style={{
-                    color: theme === 'dark' ? '#B8A895' : '#6B5D52'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
-                    e.currentTarget.style.color = theme === 'dark' ? '#E8DDD0' : '#3E3530';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = theme === 'dark' ? '#B8A895' : '#6B5D52';
-                  }}
-                  title="收起章节列表"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <ChapterList
-                  chapters={activeBook.chapters}
-                  activeChapterIndex={safeChapterIndex}
-                  onChapterClick={handleChapterClick}
-                  theme={theme}
-                />
-              </div>
+              <ChapterList
+                chapters={activeBook.chapters}
+                activeChapterIndex={safeChapterIndex}
+                onChapterClick={handleChapterClick}
+                theme={theme}
+              />
             </div>
           </aside>
 
-          {/* 展开按钮（当章节列表收起时显示） */}
-          {!isChapterListVisible && (
-            <button
-              onClick={() => setIsChapterListVisible(true)}
-              className="fixed left-[20%] top-1/2 -translate-y-1/2 z-20 p-2 border-r rounded-r-lg transition-all duration-300 shadow-lg"
+          {/* 悬停触发按钮（固定在左边缘） */}
+          <div
+            className="fixed left-[20%] top-0 h-full w-8 z-20 flex items-center"
+            onMouseEnter={() => setIsChapterListVisible(true)}
+          >
+            <div
+              className="w-1 h-20 rounded-r-full transition-all duration-300"
               style={{
-                backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
-                color: theme === 'dark' ? '#B8A895' : '#6B5D52',
-                borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
+                backgroundColor: isChapterListVisible
+                  ? (theme === 'dark' ? '#8B7355' : '#A67C52')
+                  : (theme === 'dark' ? '#4A3D35' : '#D4C8B8'),
+                opacity: isChapterListVisible ? 1 : 0.5
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
-                e.currentTarget.style.color = theme === 'dark' ? '#E8DDD0' : '#3E3530';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = theme === 'dark' ? '#3A302A' : '#EAE4D8';
-                e.currentTarget.style.color = theme === 'dark' ? '#B8A895' : '#6B5D52';
-              }}
-              title="展开章节列表"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-          )}
+            />
+          </div>
 
-          {/* 中间：阅读内容 (40% -> 55% 当章节列表收起时) */}
-          <div 
-            className={isChapterListVisible ? 'w-2/5' : 'w-[55%]'}
-            style={{ transition: 'width 300ms ease-in-out' }}
+          {/* 中间：阅读内容 (60% - 对称布局) */}
+          <div
+            className="w-3/5"
           >
             <ReaderContent
               chapter={currentChapter}
@@ -889,9 +888,9 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
             />
           </div>
 
-          {/* 右侧：笔记详情面板 (25%) */}
-          <div 
-            className="w-1/4 border-l"
+          {/* 右侧：笔记详情面板 (20% - 与左侧对称) */}
+          <div
+            className="w-1/5 border-l"
             style={{
               backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
               borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'

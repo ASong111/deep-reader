@@ -61,3 +61,15 @@ html-escape = "0.2"
 name = "test_epub_toc"
 path = "test_epub_toc.rs"
 
+[[bin]]
+name = "explore_toc"
+path = "explore_toc.rs"
+
+[[bin]]
+name = "test_epub_parser"
+path = "test_epub_parser.rs"
+
+[[bin]]
+name = "test_epub_dedup"
+path = "test_epub_dedup.rs"
+

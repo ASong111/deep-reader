@@ -195,6 +195,8 @@ mod tests {
                 },
             ],
             confidence: "explicit".to_string(),
+            raw_html: None,
+            render_mode: "irp".to_string(),
         };
 
         let length = builder.calculate_content_length(&chapter);
@@ -209,6 +211,8 @@ mod tests {
             title: "第一章".to_string(),
             blocks: vec![],
             confidence: "explicit".to_string(),
+            raw_html: None,
+            render_mode: "irp".to_string(),
         };
 
         let heading = builder.extract_heading(&chapter);
@@ -230,6 +234,8 @@ mod tests {
                 }],
             }],
             confidence: "inferred".to_string(),
+            raw_html: None,
+            render_mode: "irp".to_string(),
         };
 
         let heading = builder.extract_heading(&chapter);

@@ -276,6 +276,62 @@ impl EpubParser {
         merged
     }
 
+    /// 递归收集所有 TOC 条目（包括子节点）
+    fn collect_toc_entries(&self, toc: &[epub::doc::NavPoint], entries: &mut Vec<epub::doc::NavPoint>) {
+        for nav_point in toc {
+            entries.push(nav_point.clone());
+            // 递归收集子节点
+            if !nav_point.children.is_empty() {
+                self.collect_toc_entries(&nav_point.children, entries);
+            }
+        }
+    }
+
+    /// 回退逻辑：当没有 TOC 时，解析所有章节
+    fn parse_all_chapters(&self, doc: &mut EpubDoc<std::io::BufReader<std::fs::File>>) -> Result<ParseResult, String> {
+        let mut chapters = Vec::new();
+        let total_blocks = 0;
+
+        // 获取章节数量
+        let num_chapters = doc.get_num_chapters();
+
+        for i in 0..num_chapters {
+            // 设置当前章节
+            if !doc.set_current_chapter(i) {
+                continue;
+            }
+
+            // 获取章节内容
+            let content = doc.get_current_str();
+            if content.is_none() {
+                continue;
+            }
+
+            let (html_content, _mime) = content.unwrap();
+
+            // 尝试从 HTML 内容中提取标题
+            let title = self.extract_title_from_html(&html_content)
+                .unwrap_or_else(|| format!("第 {} 章", chapters.len() + 1));
+
+            eprintln!("EPUB 解析 - 文件 {}: 标题={}", i, title);
+
+            // EPUB 只保存原始 HTML，不生成 IRP blocks
+            chapters.push(ChapterData {
+                title,
+                blocks: Vec::new(), // 空的 blocks，不需要生成
+                confidence: "explicit".to_string(),
+                raw_html: Some(html_content.clone()),
+                render_mode: "html".to_string(),
+            });
+        }
+
+        Ok(ParseResult {
+            chapters,
+            total_blocks,
+            quality: ParseQuality::Native,
+        })
+    }
+
     /// 检查两个标记列表是否相等
     fn marks_equal(&self, marks1: &[TextMark], marks2: &[TextMark]) -> bool {
         if marks1.len() != marks2.len() {
@@ -347,36 +403,85 @@ impl EpubParser {
 }
 
 impl Parser for EpubParser {
-    fn parse(&self, file_path: &Path, book_id: i32, conn: &Connection) -> Result<ParseResult, String> {
+    fn parse(&self, file_path: &Path, _book_id: i32, _conn: &Connection) -> Result<ParseResult, String> {
         // 打开 EPUB 文件
         let mut doc = EpubDoc::new(file_path)
             .map_err(|e| format!("EPUB 解析错误: {}", e))?;
 
         let mut chapters = Vec::new();
-        let mut total_blocks = 0;
+        let total_blocks = 0;
 
-        // 获取章节数量
-        let num_chapters = doc.get_num_chapters();
+        // 获取 TOC（目录）
+        let toc = doc.toc.clone();
 
-        for i in 0..num_chapters {
+        // 如果没有 TOC，回退到遍历所有章节的旧逻辑
+        if toc.is_empty() {
+            eprintln!("警告: EPUB 文件没有 TOC，使用所有章节");
+            return self.parse_all_chapters(&mut doc);
+        }
+
+        // 建立 path -> resource_id 的映射
+        let mut path_to_id = std::collections::HashMap::new();
+        for (id, resource) in doc.resources.iter() {
+            let path_str = resource.path.to_string_lossy().to_string();
+            path_to_id.insert(path_str, id.clone());
+        }
+
+        // 建立 resource_id -> spine_index 的映射
+        let mut id_to_spine_index = std::collections::HashMap::new();
+        for (spine_idx, spine_item) in doc.spine.iter().enumerate() {
+            id_to_spine_index.insert(spine_item.idref.clone(), spine_idx);
+        }
+
+        // 收集所有 TOC 条目（包括子节点）
+        let mut toc_entries = Vec::new();
+        self.collect_toc_entries(&toc, &mut toc_entries);
+
+        eprintln!("EPUB 解析 - TOC 条目数: {}", toc_entries.len());
+
+        // 遍历 TOC 条目，按顺序解析（不去重，保持索引连续性）
+        for (idx, nav_point) in toc_entries.iter().enumerate() {
+            // 从 content 中提取资源路径（去掉 # 后面的锚点）
+            let content_str = nav_point.content.to_string_lossy();
+            let content_path = content_str.split('#').next().unwrap_or(&content_str);
+
+            // 通过 path 查找 resource_id
+            let resource_id = match path_to_id.get(content_path) {
+                Some(id) => id,
+                None => {
+                    eprintln!("警告: 找不到 TOC 条目的资源: {}", content_path);
+                    continue;
+                }
+            };
+
+            // 通过 resource_id 查找 spine_index
+            let spine_index = match id_to_spine_index.get(resource_id) {
+                Some(&idx) => idx,
+                None => {
+                    eprintln!("警告: 资源不在 Spine 中: {} (id: {})", content_path, resource_id);
+                    continue;
+                }
+            };
+
             // 设置当前章节
-            if !doc.set_current_chapter(i) {
+            if !doc.set_current_chapter(spine_index) {
+                eprintln!("警告: 无法设置章节: {}", spine_index);
                 continue;
             }
 
             // 获取章节内容
             let content = doc.get_current_str();
             if content.is_none() {
+                eprintln!("警告: 无法获取章节内容: {}", spine_index);
                 continue;
             }
 
             let (html_content, _mime) = content.unwrap();
 
-            // 尝试从 HTML 内容中提取标题
-            let title = self.extract_title_from_html(&html_content)
-                .unwrap_or_else(|| format!("第 {} 章", chapters.len() + 1));
+            // 使用 TOC 中的标题
+            let title = nav_point.label.clone();
 
-            eprintln!("EPUB 解析 - 文件 {}: 标题={}", i, title);
+            eprintln!("EPUB 解析 - TOC[{}]: 标题={}, Spine[{}]", idx, title, spine_index);
 
             // EPUB 只保存原始 HTML，不生成 IRP blocks
             chapters.push(ChapterData {
