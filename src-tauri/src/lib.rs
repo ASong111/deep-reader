@@ -2120,6 +2120,21 @@ fn get_reading_units(app: AppHandle, book_id: i32) -> Result<Vec<reading_unit::R
     Ok(reading_units)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_debug_data() {
+        // 测试 debug API
+    }
+
+    #[test]
+    fn test_get_reading_units() {
+        // 测试 reading units API
+    }
+}
+
 // 核心入口配置
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
