@@ -28,17 +28,14 @@ impl MarkdownParser {
 
         let mut chapters: Vec<ChapterData> = Vec::new();
         let mut current_chapter: Option<ChapterData> = None;
-        let mut current_block: Option<BlockData> = None;
         let mut current_text = String::new();
         let mut current_marks: Vec<MarkType> = Vec::new();
-        let mut in_heading = false;
         let mut heading_level = 0;
 
         for event in parser {
             match event {
                 // 标题开始
                 Event::Start(Tag::Heading(level, _, _)) => {
-                    in_heading = true;
                     heading_level = match level {
                         HeadingLevel::H1 => 1,
                         HeadingLevel::H2 => 2,
@@ -52,8 +49,6 @@ impl MarkdownParser {
                 }
                 // 标题结束
                 Event::End(Tag::Heading(_, _, _)) => {
-                    in_heading = false;
-
                     // H1 和 H2 作为章节标题
                     if heading_level <= 2 {
                         // 保存当前章节
@@ -68,6 +63,8 @@ impl MarkdownParser {
                             confidence: "explicit".to_string(),
                             raw_html: None,
                             render_mode: "irp".to_string(),
+                            heading_level: Some(heading_level as u32),
+                            anchor_id: None,
                         });
                     } else {
                         // H3-H6 作为标题块
@@ -193,7 +190,6 @@ impl MarkdownParser {
                 }
                 // 行内代码
                 Event::Code(code) => {
-                    let start = current_text.len();
                     current_text.push_str(&code);
                     // 添加代码标记
                     current_marks.push(MarkType::Code);
@@ -223,6 +219,8 @@ impl MarkdownParser {
                 confidence: "linear".to_string(),
                 raw_html: None,
                 render_mode: "irp".to_string(),
+                heading_level: Some(1),
+                anchor_id: None,
             });
         }
 
@@ -273,75 +271,67 @@ impl Parser for MarkdownParser {
 }
 
 impl MarkdownParser {
-    /// 按 H1/H2 标题分割 Markdown 内容
+    /// 按所有标题（H1-H6）分割 Markdown 内容
     ///
     /// 保留原始 Markdown 内容，用于前端渲染
+    /// 策略：将整个文档作为一个章节，但提取所有标题信息用于目录导航
     fn split_markdown_by_headings(&self, content: &str) -> Result<Vec<ChapterData>, String> {
         let mut chapters = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
-        let mut current_chapter_lines = Vec::new();
-        let mut current_title = String::new();
-        let mut in_chapter = false;
 
-        for line in lines {
-            // 检查是否是 H1 或 H2 标题
-            if line.starts_with("# ") || line.starts_with("## ") {
-                // 保存上一个章节
-                if in_chapter && !current_chapter_lines.is_empty() {
-                    let chapter_content = current_chapter_lines.join("\n");
+        // 提取所有标题信息用于目录
+        let mut heading_infos = Vec::new();
 
-                    chapters.push(ChapterData {
-                        title: current_title.clone(),
-                        blocks: Vec::new(), // Markdown 不需要生成 IRP blocks
-                        confidence: "explicit".to_string(),
-                        raw_html: Some(chapter_content),
-                        render_mode: "markdown".to_string(),
-                    });
-                    current_chapter_lines.clear();
-                }
-
-                // 开始新章节
-                current_title = line.trim_start_matches('#').trim().to_string();
-                current_chapter_lines.push(line);
-                in_chapter = true;
+        for (line_index, line) in lines.iter().enumerate() {
+            // 检查是否是任意级别的标题（H1-H6）
+            let heading_level = if line.starts_with("# ") && !line.starts_with("## ") {
+                Some(1)
+            } else if line.starts_with("## ") && !line.starts_with("### ") {
+                Some(2)
+            } else if line.starts_with("### ") && !line.starts_with("#### ") {
+                Some(3)
+            } else if line.starts_with("#### ") && !line.starts_with("##### ") {
+                Some(4)
+            } else if line.starts_with("##### ") && !line.starts_with("###### ") {
+                Some(5)
+            } else if line.starts_with("###### ") {
+                Some(6)
             } else {
-                // 添加到当前章节
-                if in_chapter {
-                    current_chapter_lines.push(line);
-                } else {
-                    // 如果还没有遇到标题，先收集内容
-                    current_chapter_lines.push(line);
-                }
+                None
+            };
+
+            if let Some(level) = heading_level {
+                let title = line.trim_start_matches('#').trim().to_string();
+                heading_infos.push((title, level, line_index));
             }
         }
 
-        // 保存最后一个章节
-        if !current_chapter_lines.is_empty() {
-            let chapter_content = current_chapter_lines.join("\n");
+        // 如果有标题，为每个标题创建一个"虚拟章节"用于目录
+        if !heading_infos.is_empty() {
+            let full_content = content.to_string();
 
-            let title = if in_chapter && !current_title.is_empty() {
-                current_title
-            } else {
-                "全文".to_string()
-            };
-
-            chapters.push(ChapterData {
-                title,
-                blocks: Vec::new(), // Markdown 不需要生成 IRP blocks
-                confidence: if in_chapter { "explicit".to_string() } else { "linear".to_string() },
-                raw_html: Some(chapter_content),
-                render_mode: "markdown".to_string(),
-            });
-        }
-
-        // 如果没有章节，创建一个默认章节
-        if chapters.is_empty() {
+            // 为每个标题创建一个章节条目（用于目录）
+            for (title, level, _) in heading_infos {
+                chapters.push(ChapterData {
+                    title,
+                    blocks: Vec::new(),
+                    confidence: "explicit".to_string(),
+                    raw_html: Some(full_content.clone()), // 所有章节共享同一份完整内容
+                    render_mode: "markdown".to_string(),
+                    heading_level: Some(level),
+                    anchor_id: None, // 锚点 ID 将在前端生成
+                });
+            }
+        } else {
+            // 如果没有标题，创建一个默认章节
             chapters.push(ChapterData {
                 title: "全文".to_string(),
-                blocks: Vec::new(), // Markdown 不需要生成 IRP blocks
+                blocks: Vec::new(),
                 confidence: "linear".to_string(),
                 raw_html: Some(content.to_string()),
                 render_mode: "markdown".to_string(),
+                heading_level: Some(1),
+                anchor_id: None,
             });
         }
 

@@ -3,7 +3,7 @@
 /// 处理书籍的异步导入流程，包括解析、资产提取和索引构建
 
 use tauri::{AppHandle, Emitter, Manager};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use crate::import_queue::{ImportQueue, ImportTask, ImportStatus};
 use crate::parser::ParserRouter;
 use crate::db;
@@ -199,7 +199,7 @@ async fn process_single_import(app: AppHandle, task: ImportTask) -> Result<(), S
 
     // 保存章节和块到数据库
     for (chapter_index, chapter) in result.chapters.iter().enumerate() {
-        let chapter_id = irp::create_chapter_with_html(
+        let chapter_id = irp::create_chapter_with_html_and_level(
             &conn,
             task.book_id,
             &chapter.title,
@@ -207,6 +207,7 @@ async fn process_single_import(app: AppHandle, task: ImportTask) -> Result<(), S
             &chapter.confidence,
             chapter.raw_html.as_deref(),
             &chapter.render_mode,
+            chapter.heading_level,
         ).map_err(|e| e.to_string())?;
 
         // 只有 IRP 模式才保存 blocks（TXT、PDF）
@@ -312,8 +313,6 @@ async fn process_single_import(app: AppHandle, task: ImportTask) -> Result<(), S
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_module_exists() {
         // 简单的模块存在性测试

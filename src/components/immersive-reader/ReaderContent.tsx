@@ -1,10 +1,17 @@
-import { memo, useMemo, useRef, useEffect, useState, useCallback } from 'react';
+import { memo, useMemo, useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { Highlighter, Underline, StickyNote, X, ChevronRight, Sparkles } from 'lucide-react';
 import DOMPurify from 'dompurify';
-// import ReactMarkdown from 'react-markdown';
-// import remarkGfm from 'remark-gfm';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Chapter, ThemeMode } from './types';
 import { Note } from '../../types/notes';
+import AIExplainCard from '../reader/AIExplainCard';
+
+// 暴露给父组件的方法
+export interface ReaderContentHandle {
+  getScrollPosition: () => number;
+  setScrollPosition: (position: number) => void;
+}
 
 interface ReaderContentProps {
   chapter: Chapter;
@@ -19,6 +26,7 @@ interface ReaderContentProps {
   onNextChapter?: () => void;
   hasNextChapter?: boolean;
   onExplainText?: (text: string) => void;
+  isReadingMode?: boolean;
 }
 
 // 独立的content组件，使用React.memo防止重新渲染导致DOM节点替换
@@ -51,25 +59,45 @@ const MemoizedContent = memo<{
          prevProps.isDark === nextProps.isDark;
 });
 
-const ReaderContent = memo(({ 
-  chapter, 
-  theme, 
+const ReaderContent = forwardRef<ReaderContentHandle, ReaderContentProps>(({
+  chapter,
+  theme,
   onTextSelection,
+  bookId: _bookId, // 保留用于接口兼容性，实际未使用
+  chapterIndex: _chapterIndex, // 保留用于接口兼容性，实际未使用
   notes = [],
   onAnnotate,
   onNoteClick,
   jumpToNoteId,
   onNextChapter,
   hasNextChapter = false,
-  onExplainText,
-}: ReaderContentProps) => {
+  isReadingMode = false,
+}, ref) => {
   const isDark = theme === 'dark';
-  
+
   const contentRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null); // 滚动容器的 ref
   const [selectedText, setSelectedText] = useState<string>("");
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null);
   const selectionMonitorRef = useRef<number | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
+
+  // AI 释义卡片状态
+  const [showAIExplainCard, setShowAIExplainCard] = useState(false);
+  const [aiExplainText, setAiExplainText] = useState<string>("");
+  const [aiExplainPosition, setAiExplainPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // 暴露给父组件的方法
+  useImperativeHandle(ref, () => ({
+    getScrollPosition: () => {
+      return scrollContainerRef.current?.scrollTop || 0;
+    },
+    setScrollPosition: (position: number) => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = position;
+      }
+    }
+  }));
   
   // 在组件挂载时立即注入CSS选择样式，确保在任何选择发生前样式就存在
   useEffect(() => {
@@ -440,6 +468,9 @@ const ReaderContent = memo(({
     };
   }, [selectionPosition, handleClearSelection, isDark]);
 
+  // 注意：阅读进度保存已移至 ImmersiveReader 组件中
+  // 在用户返回图书馆或切换章节时保存
+
   // 应用高亮标注
   const applyHighlight = useCallback(() => {
     if (!selectedText || !onAnnotate) return;
@@ -464,15 +495,18 @@ const ReaderContent = memo(({
 
   // AI 释义
   const handleExplainText = useCallback(() => {
-    if (selectedText && onExplainText) {
-      onExplainText(selectedText);
+    if (selectedText && selectionPosition && _bookId !== undefined && _chapterIndex !== undefined) {
+      setAiExplainText(selectedText);
+      setAiExplainPosition(selectionPosition);
+      setShowAIExplainCard(true);
       handleClearSelection();
     }
-  }, [selectedText, onExplainText, handleClearSelection]);
+  }, [selectedText, selectionPosition, _bookId, _chapterIndex, handleClearSelection]);
 
   return (
-    <section 
-      className="w-full h-full overflow-y-auto relative"
+    <section
+      ref={scrollContainerRef}
+      className="w-full h-full overflow-y-scroll relative custom-scrollbar"
       style={{
         backgroundColor: isDark ? '#2D2520' : '#F5F1E8'
       }}
@@ -488,50 +522,78 @@ const ReaderContent = memo(({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            onClick={applyHighlight}
-            className="p-2 hover:bg-yellow-100 dark:hover:bg-yellow-900 rounded transition-all duration-200 group active:scale-95"
-            title="高亮"
-          >
-            <Highlighter className="w-4 h-4 text-yellow-600 dark:text-yellow-400 group-hover:scale-110 transition-transform duration-200" />
-          </button>
-          <button
-            onClick={applyUnderline}
-            className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900 rounded transition-all duration-200 group active:scale-95"
-            title="下划线"
-          >
-            <Underline className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-200" />
-          </button>
-          <div className="w-px h-6 bg-gray-300 dark:bg-neutral-600 mx-1"></div>
-          <button
-            onClick={handleExplainText}
-            className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900 rounded transition-all duration-200 group active:scale-95"
-            title="AI 释义"
-          >
-            <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-200" />
-          </button>
-          <button
-            onClick={handleCreateNote}
-            className="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900 rounded transition-all duration-200 group active:scale-95"
-            title="创建笔记"
-          >
-            <StickyNote className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-200" />
-          </button>
-          <button
-            onClick={handleClearSelection}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors group"
-            title="取消"
-          >
-            <X className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:scale-110 transition-transform" />
-          </button>
+          {/* 阅读模式下只显示 AI 释义按钮 */}
+          {isReadingMode ? (
+            <>
+              <button
+                onClick={handleExplainText}
+                className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900 rounded transition-all duration-200 group active:scale-95"
+                title="AI 释义"
+              >
+                <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-200" />
+              </button>
+              <button
+                onClick={handleClearSelection}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors group"
+                title="取消"
+              >
+                <X className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:scale-110 transition-transform" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={applyHighlight}
+                className="p-2 hover:bg-yellow-100 dark:hover:bg-yellow-900 rounded transition-all duration-200 group active:scale-95"
+                title="高亮"
+              >
+                <Highlighter className="w-4 h-4 text-yellow-600 dark:text-yellow-400 group-hover:scale-110 transition-transform duration-200" />
+              </button>
+              <button
+                onClick={applyUnderline}
+                className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900 rounded transition-all duration-200 group active:scale-95"
+                title="下划线"
+              >
+                <Underline className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-200" />
+              </button>
+              <div className="w-px h-6 bg-gray-300 dark:bg-neutral-600 mx-1"></div>
+              <button
+                onClick={handleExplainText}
+                className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900 rounded transition-all duration-200 group active:scale-95"
+                title="AI 释义"
+              >
+                <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-200" />
+              </button>
+              <button
+                onClick={handleCreateNote}
+                className="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900 rounded transition-all duration-200 group active:scale-95"
+                title="创建笔记"
+              >
+                <StickyNote className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-200" />
+              </button>
+              <button
+                onClick={handleClearSelection}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors group"
+                title="取消"
+              >
+                <X className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:scale-110 transition-transform" />
+              </button>
+            </>
+          )}
         </div>
       )}
 
       {/* Content */}
       <div className="max-w-5xl mx-auto px-8 py-16" ref={contentRef}>
-        <article className={`prose prose-lg max-w-none select-text ${
-          isDark ? 'prose-invert' : 'prose-slate'
-        }`}>
+        <article
+          className={`prose prose-2xl max-w-none select-text ${
+            isDark ? 'prose-invert' : 'prose-slate'
+          }`}
+          style={{
+            fontSize: '1.25rem', // 20px，再增大两号
+            lineHeight: '1.6', // 舒适的行高
+          }}
+        >
           {/* Chapter Title */}
           <div className="mb-8">
             <h1 
@@ -552,22 +614,70 @@ const ReaderContent = memo(({
 
           {/* Chapter Content - 根据 renderMode 选择渲染方式 */}
           {chapter.renderMode === 'markdown' ? (
-            <div className="markdown-content">
-              {/* TODO: 安装 react-markdown 后启用 Markdown 渲染 */}
-              <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderedContent) }} />
+            <div
+              className="markdown-content mx-auto"
+              style={{
+                maxWidth: '75ch', // 最佳行长：75个字符
+              }}
+            >
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  // 自定义标题渲染，添加锚点 ID（基于标题文本）
+                  h1: ({children, ...props}) => {
+                    const text = String(children);
+                    const id = `heading-${text.replace(/\s+/g, '-').toLowerCase()}`;
+                    return <h1 id={id} {...props}>{children}</h1>;
+                  },
+                  h2: ({children, ...props}) => {
+                    const text = String(children);
+                    const id = `heading-${text.replace(/\s+/g, '-').toLowerCase()}`;
+                    return <h2 id={id} {...props}>{children}</h2>;
+                  },
+                  h3: ({children, ...props}) => {
+                    const text = String(children);
+                    const id = `heading-${text.replace(/\s+/g, '-').toLowerCase()}`;
+                    return <h3 id={id} {...props}>{children}</h3>;
+                  },
+                  h4: ({children, ...props}) => {
+                    const text = String(children);
+                    const id = `heading-${text.replace(/\s+/g, '-').toLowerCase()}`;
+                    return <h4 id={id} {...props}>{children}</h4>;
+                  },
+                  h5: ({children, ...props}) => {
+                    const text = String(children);
+                    const id = `heading-${text.replace(/\s+/g, '-').toLowerCase()}`;
+                    return <h5 id={id} {...props}>{children}</h5>;
+                  },
+                  h6: ({children, ...props}) => {
+                    const text = String(children);
+                    const id = `heading-${text.replace(/\s+/g, '-').toLowerCase()}`;
+                    return <h6 id={id} {...props}>{children}</h6>;
+                  },
+                }}
+              >
+                {chapter.content}
+              </ReactMarkdown>
             </div>
           ) : (
-            <MemoizedContent
-              htmlContent={renderedContent}
-              isDark={isDark}
-              contentRef={contentRef}
-              onNoteClick={onNoteClick}
-            />
+            <div
+              className="mx-auto"
+              style={{
+                maxWidth: '75ch', // 最佳行长：75个字符
+              }}
+            >
+              <MemoizedContent
+                htmlContent={renderedContent}
+                isDark={isDark}
+                contentRef={contentRef}
+                onNoteClick={onNoteClick}
+              />
+            </div>
           )}
         </article>
 
-        {/* 下一章按钮 */}
-        {hasNextChapter && onNextChapter && (
+        {/* 下一章按钮 - Markdown 格式不显示 */}
+        {hasNextChapter && onNextChapter && chapter.renderMode !== 'markdown' && (
           <div className="mt-16 mb-12 flex justify-center border-t pt-8" style={{
             borderColor: isDark ? 'rgba(184, 168, 149, 0.2)' : 'rgba(107, 93, 82, 0.2)'
           }}>
@@ -589,6 +699,27 @@ const ReaderContent = memo(({
       {/* 添加样式以支持标注的悬停效果 */}
       {/* 注意：::selection 样式已在 useEffect 中动态注入到 <head>，这里不再重复定义 */}
       <style>{`
+        /* 自定义滚动条样式 - 确保滚动条始终可见 */
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 12px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: ${isDark ? 'rgba(74, 61, 53, 0.3)' : 'rgba(212, 200, 184, 0.3)'};
+          border-radius: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: ${isDark ? 'rgba(139, 115, 85, 0.6)' : 'rgba(166, 124, 82, 0.6)'};
+          border-radius: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: ${isDark ? 'rgba(139, 115, 85, 0.8)' : 'rgba(166, 124, 82, 0.8)'};
+        }
+        /* Firefox 滚动条样式 */
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: ${isDark ? 'rgba(139, 115, 85, 0.6) rgba(74, 61, 53, 0.3)' : 'rgba(166, 124, 82, 0.6) rgba(212, 200, 184, 0.3)'};
+        }
+
         .reader-content {
           font-family: Arial, sans-serif !important;
         }
@@ -731,6 +862,18 @@ const ReaderContent = memo(({
           font-weight: bold;
         }
       `}</style>
+
+      {/* AI 释义卡片 */}
+      {showAIExplainCard && _bookId !== undefined && _chapterIndex !== undefined && (
+        <AIExplainCard
+          selectedText={aiExplainText}
+          position={aiExplainPosition}
+          bookId={_bookId}
+          chapterIndex={_chapterIndex}
+          theme={theme}
+          onClose={() => setShowAIExplainCard(false)}
+        />
+      )}
     </section>
   );
 });

@@ -197,6 +197,8 @@ mod tests {
             confidence: "explicit".to_string(),
             raw_html: None,
             render_mode: "irp".to_string(),
+            heading_level: None,
+            anchor_id: None,
         };
 
         let length = builder.calculate_content_length(&chapter);
@@ -213,6 +215,8 @@ mod tests {
             confidence: "explicit".to_string(),
             raw_html: None,
             render_mode: "irp".to_string(),
+            heading_level: None,
+            anchor_id: None,
         };
 
         let heading = builder.extract_heading(&chapter);
@@ -236,6 +240,8 @@ mod tests {
             confidence: "inferred".to_string(),
             raw_html: None,
             render_mode: "irp".to_string(),
+            heading_level: None,
+            anchor_id: None,
         };
 
         let heading = builder.extract_heading(&chapter);

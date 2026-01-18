@@ -118,11 +118,6 @@ impl ReadingUnitBuilder {
             "heuristic".to_string()
         };
 
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
-
         // 生成唯一ID
         let unit_id = self.next_unit_id.get();
         self.next_unit_id.set(unit_id + 1);

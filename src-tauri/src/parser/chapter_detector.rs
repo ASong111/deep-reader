@@ -235,6 +235,8 @@ impl ChapterDetector {
             confidence: "linear".to_string(),
             raw_html: None,
             render_mode: "irp".to_string(),
+            heading_level: None,
+            anchor_id: None,
         }]
     }
 
@@ -267,6 +269,8 @@ impl ChapterDetector {
                     confidence: info.confidence.clone(),
                     raw_html: None,
                     render_mode: "irp".to_string(),
+                    heading_level: None,
+                    anchor_id: None,
                 });
             }
         }
@@ -279,6 +283,8 @@ impl ChapterDetector {
                 confidence: "linear".to_string(),
                 raw_html: None,
                 render_mode: "irp".to_string(),
+                heading_level: None,
+                anchor_id: None,
             });
         }
 

@@ -160,47 +160,40 @@ impl SegmentScore {
     /// 计算加权总分
     pub fn calculate_total(&mut self, weights: &HashMap<String, f64>) {
         let mut total = 0.0;
-        let mut weight_sum = 0.0;
 
         if let Some(score) = self.toc_score {
             if let Some(&weight) = weights.get("toc") {
                 total += score * weight;
-                weight_sum += weight;
             }
         }
 
         if let Some(score) = self.heading_score {
             if let Some(&weight) = weights.get("heading") {
                 total += score * weight;
-                weight_sum += weight;
             }
         }
 
         if let Some(score) = self.length_score {
             if let Some(&weight) = weights.get("length") {
                 total += score * weight;
-                weight_sum += weight;
             }
         }
 
         if let Some(score) = self.content_score {
             if let Some(&weight) = weights.get("content") {
                 total += score * weight;
-                weight_sum += weight;
             }
         }
 
         if let Some(score) = self.position_score {
             if let Some(&weight) = weights.get("position") {
                 total += score * weight;
-                weight_sum += weight;
             }
         }
 
         if let Some(score) = self.continuity_score {
             if let Some(&weight) = weights.get("continuity") {
                 total += score * weight;
-                weight_sum += weight;
             }
         }
 

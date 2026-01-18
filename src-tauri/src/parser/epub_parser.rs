@@ -322,6 +322,8 @@ impl EpubParser {
                 confidence: "explicit".to_string(),
                 raw_html: Some(html_content.clone()),
                 render_mode: "html".to_string(),
+                heading_level: None, // EPUB 不使用 heading_level
+                anchor_id: None, // EPUB 不使用 anchor_id
             });
         }
 
@@ -490,6 +492,8 @@ impl Parser for EpubParser {
                 confidence: "explicit".to_string(),
                 raw_html: Some(html_content.clone()),
                 render_mode: "html".to_string(),
+                heading_level: None, // EPUB 不使用 heading_level
+                anchor_id: None, // EPUB 不使用 anchor_id
             });
         }
 

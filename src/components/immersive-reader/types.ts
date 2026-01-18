@@ -3,6 +3,8 @@ export interface Chapter {
   title: string;
   content: string;
   renderMode?: string | undefined; // "html", "markdown", "irp"
+  headingLevel?: number | null; // 标题层级（1-6），用于 Markdown 等格式
+  anchorId?: string | null; // 锚点 ID，用于 Markdown 格式的目录跳转
 }
 
 export interface Book {

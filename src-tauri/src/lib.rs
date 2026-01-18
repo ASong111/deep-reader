@@ -247,14 +247,33 @@ fn build_prompt(action: &str, note_title: &str, note_content: &str, highlighted_
     }
 }
 
+// 辅助函数：处理 HTTP 请求错误
+fn handle_request_error(e: reqwest::Error) -> String {
+    if e.is_timeout() {
+        "请求超时：API 响应时间过长（超过30秒），请检查网络连接或稍后重试".to_string()
+    } else if e.is_connect() {
+        "连接失败：无法连接到 API 服务器，请检查网络连接和 Base URL 配置".to_string()
+    } else if e.is_request() {
+        "请求错误：请求格式有误，请检查 API 配置".to_string()
+    } else {
+        format!("请求失败: {}", e)
+    }
+}
+
 // 调用 LLM API 的通用函数（支持消息列表）
 async fn call_llm_api(
     config: &AIConfig,
     messages: Vec<HashMap<String, String>>,
 ) -> Result<String, String> {
     let api_key = config.api_key.as_ref().ok_or("API key 未配置")?;
-    let client = reqwest::Client::new();
-    
+
+    // 创建带超时的 HTTP 客户端（30秒超时）
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
+
     match config.platform.as_str() {
         "openai" | "openai-cn" => {
             let base_url = config.base_url.as_deref().unwrap_or("https://api.openai.com/v1");
@@ -273,11 +292,12 @@ async fn call_llm_api(
                 .json(&openai_req)
                 .send()
                 .await
-                .map_err(|e| format!("请求失败: {}", e))?;
-            
+                .map_err(handle_request_error)?;
+
             if !response.status().is_success() {
+                let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
-                return Err(format!("API 错误: {}", error_text));
+                return Err(format!("API 错误 ({}): {}。请检查 API Key 和配置是否正确", status, error_text));
             }
             
             let openai_resp: OpenAIResponse = response.json()
@@ -317,11 +337,12 @@ async fn call_llm_api(
                 .json(&anthropic_req)
                 .send()
                 .await
-                .map_err(|e| format!("请求失败: {}", e))?;
-            
+                .map_err(handle_request_error)?;
+
             if !response.status().is_success() {
+                let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
-                return Err(format!("API 错误: {}", error_text));
+                return Err(format!("API 错误 ({}): {}。请检查 API Key 和配置是否正确", status, error_text));
             }
             
             let anthropic_resp: AnthropicResponse = response.json()
@@ -334,19 +355,34 @@ async fn call_llm_api(
         },
         "google" => {
             let base_url = config.base_url.as_deref().unwrap_or("https://generativelanguage.googleapis.com");
-            
-            // 合并所有消息内容
-            let mut combined_text = String::new();
-            for msg in messages {
+
+            // Google Gemini 不支持 system 消息，需要特殊处理
+            // 将 system 消息作为上下文添加到 user 消息前面
+            let mut final_text = String::new();
+            let mut has_system = false;
+
+            for msg in &messages {
                 if let (Some(role), Some(content)) = (msg.get("role"), msg.get("content")) {
-                    combined_text.push_str(&format!("{}: {}\n", role, content));
+                    if role == "system" {
+                        final_text.push_str(content);
+                        final_text.push_str("\n\n");
+                        has_system = true;
+                    }
                 }
             }
-            
+
+            for msg in &messages {
+                if let (Some(role), Some(content)) = (msg.get("role"), msg.get("content")) {
+                    if role == "user" {
+                        final_text.push_str(content);
+                    }
+                }
+            }
+
             let google_req = serde_json::json!({
                 "contents": [{
                     "parts": [{
-                        "text": combined_text
+                        "text": final_text.trim()
                     }]
                 }],
                 "generationConfig": {
@@ -354,20 +390,21 @@ async fn call_llm_api(
                     "maxOutputTokens": config.max_tokens,
                 }
             });
-            
+
             let response = client
                 .post(&format!("{}/v1beta/models/{}:generateContent?key={}", base_url, config.model, api_key))
                 .header("Content-Type", "application/json")
                 .json(&google_req)
                 .send()
                 .await
-                .map_err(|e| format!("请求失败: {}", e))?;
-            
+                .map_err(handle_request_error)?;
+
             if !response.status().is_success() {
+                let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
-                return Err(format!("API 错误: {}", error_text));
+                return Err(format!("API 错误 ({}): {}。请检查 API Key 和配置是否正确", status, error_text));
             }
-            
+
             let google_resp: GoogleResponse = response.json()
                 .await
                 .map_err(|e| format!("解析响应失败: {}", e))?;
@@ -525,11 +562,12 @@ async fn call_ai_assistant(app: AppHandle, request: AIRequest) -> Result<String,
                 .json(&openai_req)
                 .send()
                 .await
-                .map_err(|e| format!("请求失败: {}", e))?;
-            
+                .map_err(handle_request_error)?;
+
             if !response.status().is_success() {
+                let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
-                return Err(format!("API 错误: {}", error_text));
+                return Err(format!("API 错误 ({}): {}。请检查 API Key 和配置是否正确", status, error_text));
             }
             
             let openai_resp: OpenAIResponse = response.json()
@@ -563,11 +601,12 @@ async fn call_ai_assistant(app: AppHandle, request: AIRequest) -> Result<String,
                 .json(&anthropic_req)
                 .send()
                 .await
-                .map_err(|e| format!("请求失败: {}", e))?;
-            
+                .map_err(handle_request_error)?;
+
             if !response.status().is_success() {
+                let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
-                return Err(format!("API 错误: {}", error_text));
+                return Err(format!("API 错误 ({}): {}。请检查 API Key 和配置是否正确", status, error_text));
             }
             
             let anthropic_resp: AnthropicResponse = response.json()
@@ -593,20 +632,21 @@ async fn call_ai_assistant(app: AppHandle, request: AIRequest) -> Result<String,
                     "maxOutputTokens": config.max_tokens,
                 }
             });
-            
+
             let response = client
                 .post(&format!("{}/v1beta/models/{}:generateContent?key={}", base_url, config.model, api_key))
                 .header("Content-Type", "application/json")
                 .json(&google_req)
                 .send()
                 .await
-                .map_err(|e| format!("请求失败: {}", e))?;
-            
+                .map_err(handle_request_error)?;
+
             if !response.status().is_success() {
+                let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
-                return Err(format!("API 错误: {}", error_text));
+                return Err(format!("API 错误 ({}): {}。请检查 API Key 和配置是否正确", status, error_text));
             }
-            
+
             let google_resp: GoogleResponse = response.json()
                 .await
                 .map_err(|e| format!("解析响应失败: {}", e))?;
@@ -709,12 +749,15 @@ struct Book {
     title: String,
     author: String,
     cover_image: Option<String>,
+    #[serde(default)]
+    progress: i32,
 }
 
 #[derive(Serialize)]
 struct ChapterInfo {
     title: String,
     id: String,
+    heading_level: Option<i32>,
 }
 
 #[derive(Serialize)]
@@ -806,15 +849,53 @@ fn get_books(app: AppHandle) -> Result<Vec<Book>, String> {
             title,
             author,
             cover_image: row.get(3)?,
+            progress: 0, // 初始值，后面会更新
         })
     }).map_err(|e| e.to_string())?;
 
     let mut books = Vec::new();
     for book in book_iter {
-        books.push(book.map_err(|e| e.to_string())?);
+        let mut book = book.map_err(|e| e.to_string())?;
+
+        // 计算阅读进度
+        let progress = calculate_reading_progress(&conn, book.id).unwrap_or(0);
+        book.progress = progress;
+
+        books.push(book);
     }
 
     Ok(books)
+}
+
+/// 计算阅读进度百分比
+fn calculate_reading_progress(conn: &rusqlite::Connection, book_id: i32) -> Result<i32, String> {
+    // 获取总章节数
+    let total_chapters: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM chapters WHERE book_id = ?1",
+        [book_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    if total_chapters == 0 {
+        return Ok(0);
+    }
+
+    // 获取当前阅读进度
+    let result = conn.query_row(
+        "SELECT chapter_index FROM reading_progress WHERE book_id = ?1",
+        [book_id],
+        |row| row.get::<_, i32>(0)
+    );
+
+    match result {
+        Ok(chapter_index) => {
+            // 计算百分比：(当前章节索引 + 1) / 总章节数 * 100
+            let progress = ((chapter_index + 1) as f64 / total_chapters as f64 * 100.0) as i32;
+            Ok(progress.min(100))
+        }
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(0),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 #[tauri::command]
@@ -846,6 +927,7 @@ fn get_book_details(app: AppHandle, id: i32) -> Result<Vec<ChapterInfo>, String>
         .map(|c| ChapterInfo {
             title: c.title,
             id: c.id.to_string(),
+            heading_level: c.heading_level,
         })
         .collect();
 
@@ -2120,10 +2202,60 @@ fn get_reading_units(app: AppHandle, book_id: i32) -> Result<Vec<reading_unit::R
     Ok(reading_units)
 }
 
+/// 保存阅读进度
+#[tauri::command]
+fn save_reading_progress(
+    app: AppHandle,
+    book_id: i32,
+    chapter_index: i32,
+    scroll_offset: i32,
+) -> Result<(), String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+
+    // 使用 INSERT OR REPLACE 来更新或插入进度
+    conn.execute(
+        "INSERT OR REPLACE INTO reading_progress (book_id, chapter_index, scroll_offset, updated_at)
+         VALUES (?1, ?2, ?3, datetime('now'))",
+        rusqlite::params![book_id, chapter_index, scroll_offset],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// 获取阅读进度
+#[tauri::command]
+fn get_reading_progress(app: AppHandle, book_id: i32) -> Result<Option<ReadingProgress>, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+
+    let result = conn.query_row(
+        "SELECT chapter_index, scroll_offset FROM reading_progress WHERE book_id = ?1",
+        [book_id],
+        |row| {
+            Ok(ReadingProgress {
+                chapter_index: row.get(0)?,
+                scroll_offset: row.get(1)?,
+            })
+        },
+    );
+
+    match result {
+        Ok(progress) => Ok(Some(progress)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// 阅读进度结构
+#[derive(Serialize, Deserialize, Debug)]
+struct ReadingProgress {
+    chapter_index: i32,
+    scroll_offset: i32,
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_get_debug_data() {
         // 测试 debug API
@@ -2188,6 +2320,8 @@ pub fn run() {
             chat_with_ai,
             get_debug_data,
             get_reading_units,
+            save_reading_progress,
+            get_reading_progress,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

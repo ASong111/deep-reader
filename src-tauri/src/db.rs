@@ -41,6 +41,7 @@ pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
     // 添加新字段到 chapters 表（用于混合渲染模式）
     let _ = conn.execute("ALTER TABLE chapters ADD COLUMN raw_html TEXT", []);
     let _ = conn.execute("ALTER TABLE chapters ADD COLUMN render_mode TEXT DEFAULT 'irp'", []);
+    let _ = conn.execute("ALTER TABLE chapters ADD COLUMN heading_level INTEGER DEFAULT 1", []);
 
     // 内容块表（IRP 架构）
     conn.execute(
@@ -75,13 +76,10 @@ pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
         "CREATE TABLE IF NOT EXISTS reading_progress (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             book_id INTEGER NOT NULL,
-            chapter_id INTEGER NOT NULL,
-            block_id INTEGER NOT NULL,
+            chapter_index INTEGER NOT NULL,
             scroll_offset INTEGER DEFAULT 0,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
-            FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
-            FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE,
             UNIQUE(book_id)
         )",
         [],

@@ -1,17 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
-import { BookOpen, ArrowLeft, Plus, BarChart3 } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { BookOpen, ArrowLeft, Plus, BarChart3, Settings } from 'lucide-react';
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Book, ViewMode, ThemeMode, Chapter } from './types';
 import { Note, Category, Tag } from '../../types/notes';
 import BookCard from './BookCard';
 import ChapterList from './ChapterList';
-import ReaderContent from './ReaderContent';
+import ReaderContent, { ReaderContentHandle } from './ReaderContent';
 import NoteSidebar from '../notes/NoteSidebar';
 import NoteDetailPanel from '../notes/NoteDetailPanel';
 import CreateNoteDialog from '../notes/CreateNoteDialog';
 import AnalyticsView from '../notes/AnalyticsView';
 import { ToastContainer, useToastManager } from '../common/Toast';
+import GlobalSettingsDialog from '../common/GlobalSettingsDialog';
 
 // 后端返回的书籍类型
 interface BackendBook {
@@ -25,6 +26,7 @@ interface BackendBook {
 interface BackendChapterInfo {
   title: string;
   id: string;
+  heading_level?: number | null;
 }
 
 interface ImmersiveReaderProps {
@@ -39,6 +41,9 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
   const [activeChapterIndex, setActiveChapterIndex] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
+  // ReaderContent 的 ref，用于获取和设置滚动位置
+  const readerContentRef = useRef<ReaderContentHandle>(null);
+
   // 笔记相关状态
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isCreateNoteDialogOpen, setIsCreateNoteDialogOpen] = useState(false);
@@ -49,9 +54,15 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
   const [chapterNotes, setChapterNotes] = useState<Note[]>([]);
   const [jumpToNoteId, setJumpToNoteId] = useState<number | null>(null);
   const [isChapterListVisible, setIsChapterListVisible] = useState<boolean>(true);
-  
+
   // AI 助手相关状态（用于触发释义）
   const [aiSelectedText, setAiSelectedText] = useState<string>('');
+
+  // 全局设置对话框状态
+  const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
+
+  // 阅读模式状态
+  const [isReadingMode, setIsReadingMode] = useState(false);
 
   // 将后端书籍数据转换为前端格式
   const convertBackendBookToBook = useCallback((backendBook: BackendBook): Book => {
@@ -82,8 +93,51 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
   const loadBooks = useCallback(async () => {
     try {
       const backendBooks = await invoke<BackendBook[]>("get_books");
-      const convertedBooks = backendBooks.map(convertBackendBookToBook);
-      setBooks(convertedBooks);
+      console.log('📚 加载书籍列表:', backendBooks.length, '本书');
+
+      // 为每本书加载阅读进度并计算百分比
+      const booksWithProgress = await Promise.all(
+        backendBooks.map(async (backendBook) => {
+          const book = convertBackendBookToBook(backendBook);
+
+          try {
+            // 获取章节列表以计算总章节数
+            const chapters = await invoke<BackendChapterInfo[]>("get_book_details", {
+              id: backendBook.id
+            });
+            console.log(`📖 书籍 "${backendBook.title}" 章节数:`, chapters.length);
+
+            // 获取阅读进度
+            const progress = await invoke<{ chapter_index: number; scroll_offset: number } | null>(
+              'get_reading_progress',
+              { bookId: backendBook.id }
+            );
+            console.log(`📍 书籍 "${backendBook.title}" 阅读进度:`, progress);
+
+            // 计算进度百分比
+            let progressPercentage = 0;
+            if (progress && chapters.length > 0) {
+              // 基于章节索引计算进度
+              // 使用 (chapter_index + 1) 因为索引从0开始，这样第一章会显示一定进度
+              progressPercentage = Math.round(((progress.chapter_index + 1) / chapters.length) * 100);
+              // 确保进度在 0-100 之间
+              progressPercentage = Math.max(0, Math.min(100, progressPercentage));
+              console.log(`📊 书籍 "${backendBook.title}" 进度百分比:`, progressPercentage, '%');
+            }
+
+            return {
+              ...book,
+              progress: progressPercentage
+            };
+          } catch (error) {
+            console.error(`❌ 加载书籍 "${backendBook.title}" 进度失败:`, error);
+            return book; // 返回默认进度为 0 的书籍
+          }
+        })
+      );
+
+      console.log('✅ 所有书籍进度加载完成:', booksWithProgress);
+      setBooks(booksWithProgress);
     } catch (e) {
       console.error("Failed to load books:", e);
     }
@@ -124,6 +178,30 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // F11 键监听 - 切换阅读模式
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 只在阅读视图中响应 F11
+      if (e.key === 'F11' && currentView === 'reading') {
+        e.preventDefault();
+        setIsReadingMode(prev => {
+          const newMode = !prev;
+          if (newMode) {
+            showSuccess('已进入阅读模式，按 F11 退出');
+          } else {
+            showSuccess('已退出阅读模式');
+          }
+          return newMode;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [currentView, showSuccess]);
+
 
   // 导入书籍功能
   const handleImportBook = useCallback(async () => {
@@ -150,6 +228,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
         title: info.title,
         content: '', // 内容懒加载
         renderMode: '' as string | undefined, // 渲染模式在加载内容时设置
+        headingLevel: info.heading_level ?? undefined,
       }));
 
       return chapters;
@@ -175,6 +254,18 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
 
   // 打开书籍
   const handleBookClick = useCallback(async (book: Book) => {
+    // 获取阅读进度
+    let savedProgress: { chapter_index: number; scroll_offset: number } | null = null;
+    try {
+      savedProgress = await invoke<{ chapter_index: number; scroll_offset: number } | null>(
+        'get_reading_progress',
+        { bookId: book.id }
+      );
+      console.log('📖 打开书籍，已保存的进度:', savedProgress);
+    } catch (error) {
+      console.error('获取阅读进度失败:', error);
+    }
+
     // 如果书籍还没有加载章节，先加载章节列表
     if (book.chapters.length === 0) {
       const chapters = await loadBookChapters(book.id);
@@ -184,19 +275,38 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
           b.id === book.id ? { ...b, chapters } : b
         )
       );
-      // 加载第一个章节的内容
-      if (chapters.length > 0) {
-        const response = await loadChapterContent(book.id, chapters[0].id);
-        chapters[0] = {
-          ...chapters[0],
+
+      // 确定要打开的章节索引
+      const targetChapterIndex = savedProgress ? savedProgress.chapter_index : 0;
+      console.log('🎯 目标章节索引:', targetChapterIndex);
+
+      // 加载目标章节的内容
+      if (chapters.length > 0 && targetChapterIndex < chapters.length) {
+        const response = await loadChapterContent(book.id, chapters[targetChapterIndex].id);
+        chapters[targetChapterIndex] = {
+          ...chapters[targetChapterIndex],
           content: response.content,
           renderMode: response.render_mode as string | undefined
         };
         // 更新书籍数据
         const updatedBook = { ...book, chapters };
         setActiveBook(updatedBook);
-        setActiveChapterIndex(0);
+        setActiveChapterIndex(targetChapterIndex);
         setCurrentView('reading');
+
+        // 恢复滚动位置
+        if (savedProgress && savedProgress.scroll_offset > 0) {
+          console.log('⏳ 准备恢复滚动位置到:', savedProgress.scroll_offset);
+          setTimeout(() => {
+            console.log('📜 执行滚动到:', savedProgress.scroll_offset);
+            readerContentRef.current?.setScrollPosition(savedProgress.scroll_offset);
+            // 验证滚动是否成功
+            setTimeout(() => {
+              const currentScroll = readerContentRef.current?.getScrollPosition() || 0;
+              console.log('✅ 当前滚动位置:', currentScroll, '目标:', savedProgress.scroll_offset);
+            }, 500);
+          }, 300); // 增加延迟到300ms
+        }
       } else {
         // 没有章节，直接打开
         setActiveBook({ ...book, chapters });
@@ -205,87 +315,223 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
       }
     } else {
       // 章节已加载，直接打开
+      const targetChapterIndex = savedProgress ? savedProgress.chapter_index : 0;
+      console.log('🎯 目标章节索引:', targetChapterIndex);
       setActiveBook(book);
-      setActiveChapterIndex(0);
+      setActiveChapterIndex(targetChapterIndex);
       setCurrentView('reading');
+
+      // 恢复滚动位置
+      if (savedProgress && savedProgress.scroll_offset > 0) {
+        console.log('⏳ 准备恢复滚动位置到:', savedProgress.scroll_offset);
+        setTimeout(() => {
+          console.log('📜 执行滚动到:', savedProgress.scroll_offset);
+          window.scrollTo({
+            top: savedProgress.scroll_offset,
+            behavior: 'smooth'
+          });
+          // 验证滚动是否成功
+          setTimeout(() => {
+            const currentScroll = window.scrollY || document.documentElement.scrollTop;
+            console.log('✅ 当前滚动位置:', currentScroll, '目标:', savedProgress.scroll_offset);
+          }, 500);
+        }, 300); // 增加延迟到300ms
+      }
     }
   }, [loadBookChapters, loadChapterContent]);
 
   // 返回图书馆
-  const handleBackToLibrary = () => {
+  const handleBackToLibrary = async () => {
+    // 保存当前阅读进度
+    if (activeBook && activeChapterIndex !== undefined) {
+      try {
+        const scrollOffset = readerContentRef.current?.getScrollPosition() || 0;
+        console.log('💾 返回图书馆前保存进度:', {
+          bookId: activeBook.id,
+          chapterIndex: activeChapterIndex,
+          scrollOffset
+        });
+
+        await invoke('save_reading_progress', {
+          bookId: activeBook.id,
+          chapterIndex: activeChapterIndex,
+          scrollOffset: Math.round(scrollOffset),
+        });
+        console.log('✅ 阅读进度保存成功');
+      } catch (error) {
+        console.error('❌ 保存阅读进度失败:', error);
+      }
+    }
+
     setCurrentView('library');
     setActiveBook(null);
     setActiveChapterIndex(0);
+    // 重新加载书籍列表以更新阅读进度
+    loadBooks();
   };
 
   // 切换章节
   const handleChapterClick = useCallback(async (index: number) => {
     if (!activeBook) return;
-    
-    setActiveChapterIndex(index);
-    
-    // 如果章节内容还没有加载，则加载它
-    if (activeBook.chapters[index] && !activeBook.chapters[index].content) {
-      const response = await loadChapterContent(activeBook.id, activeBook.chapters[index].id);
-      // 更新当前书籍的章节内容
-      setActiveBook(prev => {
-        if (!prev) return null;
-        const updatedChapters = [...prev.chapters];
-        updatedChapters[index] = {
-          ...updatedChapters[index],
-          content: response.content,
-          renderMode: response.render_mode as string | undefined
-        };
-        return { ...prev, chapters: updatedChapters };
-      });
-      // 同时更新 books 列表中的对应书籍
-      setBooks(prevBooks =>
-        prevBooks.map(b =>
-          b.id === activeBook.id
-            ? { ...b, chapters: b.chapters.map((ch, i) =>
-                i === index ? { ...ch, content: response.content, renderMode: response.render_mode as string | undefined } : ch
-              ) }
-            : b
-        )
-      );
-    }
-  }, [activeBook, loadChapterContent]);
 
-  // 检测重复章节（与 ChapterList 中的逻辑一致）
-  const isDuplicateChapter = useCallback((index: number, chapters: Chapter[]): boolean => {
-    if (index === 0 || index >= chapters.length) return false;
+    // 保存当前章节的阅读进度
+    if (activeChapterIndex !== undefined && activeChapterIndex !== index) {
+      try {
+        const scrollOffset = readerContentRef.current?.getScrollPosition() || 0;
+        console.log('💾 切换章节前保存进度:', {
+          bookId: activeBook.id,
+          chapterIndex: activeChapterIndex,
+          scrollOffset
+        });
 
-    const current = chapters[index];
-    const previous = chapters[index - 1];
-
-    // 如果当前章节和前一个章节的内容完全相同，则认为是重复
-    if (current.content === previous.content) {
-      // 简单的层级判断
-      const currentIsSection = /^(第[一二三四五六七八九十百千\d]+节|Section\s+\d+)/.test(current.title);
-      const previousIsChapter = /^(第[一二三四五六七八九十百千\d]+章|Chapter\s+\d+)/.test(previous.title);
-
-      if (previousIsChapter && currentIsSection) {
-        return true;
+        await invoke('save_reading_progress', {
+          bookId: activeBook.id,
+          chapterIndex: activeChapterIndex,
+          scrollOffset: Math.round(scrollOffset),
+        });
+        console.log('✅ 阅读进度保存成功');
+      } catch (error) {
+        console.error('❌ 保存阅读进度失败:', error);
       }
     }
 
-    return false;
+    setActiveChapterIndex(index);
+
+    // 检查是否是 Markdown 格式
+    const isMarkdown = activeBook.chapters[index]?.renderMode === 'markdown' ||
+                       (activeBook.chapters[0]?.renderMode === 'markdown');
+
+    if (isMarkdown) {
+      // Markdown 格式：如果第一个章节已加载，所有章节共享同一份内容
+      if (activeBook.chapters[0]?.content) {
+        // 内容已加载，只需滚动到对应锚点
+        // 使用章节标题生成锚点 ID
+        const chapterTitle = activeBook.chapters[index].title;
+        const anchorId = `heading-${chapterTitle.replace(/\s+/g, '-').toLowerCase()}`;
+
+        setTimeout(() => {
+          const element = document.getElementById(anchorId);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
+
+        // 确保所有章节都有内容引用
+        if (!activeBook.chapters[index].content) {
+          setActiveBook(prev => {
+            if (!prev) return null;
+            const updatedChapters = prev.chapters.map(ch => ({
+              ...ch,
+              content: prev.chapters[0].content,
+              renderMode: prev.chapters[0].renderMode
+            }));
+            return { ...prev, chapters: updatedChapters };
+          });
+        }
+      } else {
+        // 第一次加载 Markdown 内容
+        const response = await loadChapterContent(activeBook.id, activeBook.chapters[0].id);
+        // 将内容分配给所有章节
+        setActiveBook(prev => {
+          if (!prev) return null;
+          const updatedChapters = prev.chapters.map(ch => ({
+            ...ch,
+            content: response.content,
+            renderMode: response.render_mode as string | undefined
+          }));
+          return { ...prev, chapters: updatedChapters };
+        });
+        // 同时更新 books 列表
+        setBooks(prevBooks =>
+          prevBooks.map(b =>
+            b.id === activeBook.id
+              ? { ...b, chapters: b.chapters.map(ch => ({
+                  ...ch,
+                  content: response.content,
+                  renderMode: response.render_mode as string | undefined
+                })) }
+              : b
+          )
+        );
+
+        // 加载完成后滚动到对应锚点
+        const chapterTitle = activeBook.chapters[index].title;
+        const anchorId = `heading-${chapterTitle.replace(/\s+/g, '-').toLowerCase()}`;
+
+        setTimeout(() => {
+          const element = document.getElementById(anchorId);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 200);
+      }
+    } else {
+      // 非 Markdown 格式：按原有逻辑加载章节
+      if (activeBook.chapters[index] && !activeBook.chapters[index].content) {
+        const response = await loadChapterContent(activeBook.id, activeBook.chapters[index].id);
+        // 更新当前书籍的章节内容
+        setActiveBook(prev => {
+          if (!prev) return null;
+          const updatedChapters = [...prev.chapters];
+          updatedChapters[index] = {
+            ...updatedChapters[index],
+            content: response.content,
+            renderMode: response.render_mode as string | undefined
+          };
+          return { ...prev, chapters: updatedChapters };
+        });
+        // 同时更新 books 列表中的对应书籍
+        setBooks(prevBooks =>
+          prevBooks.map(b =>
+            b.id === activeBook.id
+              ? { ...b, chapters: b.chapters.map((ch, i) =>
+                  i === index ? { ...ch, content: response.content, renderMode: response.render_mode as string | undefined } : ch
+                ) }
+              : b
+          )
+        );
+      }
+    }
+  }, [activeBook, loadChapterContent, activeChapterIndex]);
+
+  // 检查章节是否应该被跳过（有子节的章本身应该被跳过）
+  const shouldSkipChapter = useCallback((index: number, chapters: Chapter[]): boolean => {
+    if (index >= chapters.length) return false;
+
+    const chapter = chapters[index];
+    // 判断是否是一级章节
+    const isLevel1 = /^(第[一二三四五六七八九十百千\d]+章|Chapter\s+\d+|卷[一二三四五六七八九十\d]+)/i.test(chapter.title);
+
+    if (!isLevel1) return false;
+
+    // 查找下一个一级章节的位置
+    const nextLevel1Index = chapters.findIndex((c, i) => {
+      if (i <= index) return false;
+      return /^(第[一二三四五六七八九十百千\d]+章|Chapter\s+\d+|卷[一二三四五六七八九十\d]+)/i.test(c.title);
+    });
+
+    const endIndex = nextLevel1Index === -1 ? chapters.length : nextLevel1Index;
+
+    // 如果这个章节后面有子节，则应该跳过这个章节本身
+    return chapters.slice(index + 1, endIndex).some(c =>
+      /^(第[一二三四五六七八九十百千\d]+节|Section\s+\d+|\d+\.|[一二三四五六七八九十]+、)/i.test(c.title)
+    );
   }, []);
 
-  // 跳转到下一章（跳过重复章节）
+  // 跳转到下一章（跳过有子节的章本身）
   const handleNextChapter = useCallback(() => {
     if (!activeBook) return;
     let nextIndex = activeChapterIndex + 1;
 
-    // 跳过重复章节
-    while (nextIndex < activeBook.chapters.length && isDuplicateChapter(nextIndex, activeBook.chapters)) {
+    // 跳过有子节的章本身（因为这些章不应该被直接阅读）
+    while (nextIndex < activeBook.chapters.length && shouldSkipChapter(nextIndex, activeBook.chapters)) {
       nextIndex++;
     }
 
     if (nextIndex < activeBook.chapters.length) {
       handleChapterClick(nextIndex);
     }
-  }, [activeBook, activeChapterIndex, handleChapterClick, isDuplicateChapter]);
+  }, [activeBook, activeChapterIndex, handleChapterClick, shouldSkipChapter]);
 
   // 加载分类和标签
   const loadCategoriesAndTags = useCallback(async () => {
@@ -515,6 +761,25 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
                 </button>
               </nav>
             </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsGlobalSettingsOpen(true)}
+                className="p-2 rounded-lg transition-colors"
+                style={{
+                  color: theme === 'dark' ? '#B8A895' : '#6B5D52',
+                  backgroundColor: 'transparent'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+                title="全局设置"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            </div>
           </header>
 
           {/* Analytics Content */}
@@ -527,6 +792,11 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
             <AnalyticsView />
           </main>
         <ToastContainer toasts={toasts} onRemove={removeToast} />
+        <GlobalSettingsDialog
+          isOpen={isGlobalSettingsOpen}
+          onClose={() => setIsGlobalSettingsOpen(false)}
+          theme={theme}
+        />
       </div>
     );
   }
@@ -608,30 +878,49 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
                 </button>
               </nav>
             </div>
-            <button
-              onClick={handleImportBook}
-              disabled={loading}
-              className={`flex items-center gap-2 px-5 py-2.5 font-medium rounded-lg transition-colors shadow-md ${
-                loading ? 'opacity-50 cursor-wait' : ''
-              }`}
-              style={{
-                backgroundColor: theme === 'dark' ? '#8B7355' : '#A67C52',
-                color: '#FFFFFF'
-              }}
-              onMouseEnter={(e) => {
-                if (!loading) {
-                  e.currentTarget.style.backgroundColor = theme === 'dark' ? '#9A8164' : '#B58A61';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!loading) {
-                  e.currentTarget.style.backgroundColor = theme === 'dark' ? '#8B7355' : '#A67C52';
-                }
-              }}
-            >
-              <Plus className="w-5 h-5" />
-              {loading ? '导入中...' : '导入图书'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsGlobalSettingsOpen(true)}
+                className="p-2 rounded-lg transition-colors"
+                style={{
+                  color: theme === 'dark' ? '#B8A895' : '#6B5D52',
+                  backgroundColor: 'transparent'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+                title="全局设置"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleImportBook}
+                disabled={loading}
+                className={`flex items-center gap-2 px-5 py-2.5 font-medium rounded-lg transition-colors shadow-md ${
+                  loading ? 'opacity-50 cursor-wait' : ''
+                }`}
+                style={{
+                  backgroundColor: theme === 'dark' ? '#8B7355' : '#A67C52',
+                  color: '#FFFFFF'
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#9A8164' : '#B58A61';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) {
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? '#8B7355' : '#A67C52';
+                  }
+                }}
+              >
+                <Plus className="w-5 h-5" />
+                {loading ? '导入中...' : '导入图书'}
+              </button>
+            </div>
           </header>
 
           {/* Book Grid */}
@@ -662,6 +951,11 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
             )}
           </main>
         <ToastContainer toasts={toasts} onRemove={removeToast} />
+        <GlobalSettingsDialog
+          isOpen={isGlobalSettingsOpen}
+          onClose={() => setIsGlobalSettingsOpen(false)}
+          theme={theme}
+        />
       </div>
     );
   }
@@ -757,46 +1051,65 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
           overflow: 'hidden'
         }}
       >
-        {/* Header */}
-        <header 
-          className="h-16 border-b flex items-center px-8 shadow-lg"
-          style={{
-            backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
-            borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
-          }}
-        >
-          <button
-            onClick={handleBackToLibrary}
-            className="flex items-center gap-2 px-4 py-2 font-medium rounded-lg transition-colors"
+        {/* Header - 阅读模式下隐藏 */}
+        {!isReadingMode && (
+          <header
+            className="h-16 border-b flex items-center px-8 shadow-lg"
             style={{
-              backgroundColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8',
-              color: theme === 'dark' ? '#E8DDD0' : '#3E3530'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = theme === 'dark' ? '#524439' : '#C9BDAD';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
+              backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+              borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
             }}
           >
-            <ArrowLeft className="w-5 h-5" />
-            返回图书馆
-          </button>
-          <div className="ml-8 flex-1">
-            <h1 
-              className="text-xl font-bold"
-              style={{ color: theme === 'dark' ? '#E8DDD0' : '#3E3530' }}
+            <button
+              onClick={handleBackToLibrary}
+              className="flex items-center gap-2 px-4 py-2 font-medium rounded-lg transition-colors"
+              style={{
+                backgroundColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8',
+                color: theme === 'dark' ? '#E8DDD0' : '#3E3530'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = theme === 'dark' ? '#524439' : '#C9BDAD';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
+              }}
             >
-              {activeBook.title}
-            </h1>
-            <p 
-              className="text-sm"
-              style={{ color: theme === 'dark' ? '#B8A895' : '#6B5D52' }}
+              <ArrowLeft className="w-5 h-5" />
+              返回图书馆
+            </button>
+            <div className="ml-8 flex-1">
+              <h1
+                className="text-xl font-bold"
+                style={{ color: theme === 'dark' ? '#E8DDD0' : '#3E3530' }}
+              >
+                {activeBook.title}
+              </h1>
+              <p
+                className="text-sm"
+                style={{ color: theme === 'dark' ? '#B8A895' : '#6B5D52' }}
+              >
+                {activeBook.author}
+              </p>
+            </div>
+            <button
+              onClick={() => setIsGlobalSettingsOpen(true)}
+              className="p-2 rounded-lg transition-colors"
+              style={{
+                color: theme === 'dark' ? '#B8A895' : '#6B5D52',
+                backgroundColor: 'transparent'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              title="全局设置"
             >
-              {activeBook.author}
-            </p>
-          </div>
-        </header>
+              <Settings className="w-5 h-5" />
+            </button>
+          </header>
+        )}
 
         {/* 三栏布局：笔记侧边栏 + 章节列表 + 阅读内容 + 笔记详情 */}
         <main 
@@ -805,112 +1118,128 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
             backgroundColor: theme === 'dark' ? '#2D2520' : '#F5F1E8'
           }}
         >
-          {/* 左侧：笔记侧边栏 (20%) */}
-          <div 
-            className="w-1/5 border-r"
-            style={{
-              backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
-              borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
-            }}
-          >
-            <NoteSidebar
-              selectedNoteId={selectedNote?.id || null}
-              onSelectNote={handleNoteSelect}
-              onCreateNote={() => setIsCreateNoteDialogOpen(true)}
-              currentBookId={activeBook.id}
-              currentChapterIndex={safeChapterIndex}
-              theme={theme}
-              key={notesRefreshKey}
-            />
-          </div>
-
-          {/* 中间左侧：章节列表 - 悬停展开 */}
-          <aside
-            className={`border-r overflow-hidden fixed left-[20%] top-0 h-full z-30 ${
-              isChapterListVisible ? 'w-64' : 'w-0'
-            }`}
-            style={{
-              backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
-              borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8',
-              transition: 'width 300ms ease-in-out',
-              boxShadow: isChapterListVisible ? '2px 0 8px rgba(0,0,0,0.1)' : 'none'
-            }}
-            onMouseLeave={() => setIsChapterListVisible(false)}
-          >
+          {/* 左侧：笔记侧边栏 (20%) - 阅读模式下隐藏 */}
+          {!isReadingMode && (
             <div
-              className={`h-full overflow-y-auto ${
-                isChapterListVisible ? 'opacity-100' : 'opacity-0'
-              }`}
-              style={{ transition: 'opacity 300ms' }}
+              className="w-1/5 border-r"
+              style={{
+                backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+                borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
+              }}
             >
-              <ChapterList
-                chapters={activeBook.chapters}
-                activeChapterIndex={safeChapterIndex}
-                onChapterClick={handleChapterClick}
+              <NoteSidebar
+                selectedNoteId={selectedNote?.id || null}
+                onSelectNote={handleNoteSelect}
+                onCreateNote={() => setIsCreateNoteDialogOpen(true)}
+                currentBookId={activeBook.id}
+                currentChapterIndex={safeChapterIndex}
                 theme={theme}
+                key={notesRefreshKey}
               />
             </div>
-          </aside>
+          )}
 
-          {/* 悬停触发按钮（固定在左边缘） */}
+          {/* 中间：阅读内容 - 包含章节列表和内容区域 */}
           <div
-            className="fixed left-[20%] top-0 h-full w-8 z-20 flex items-center"
-            onMouseEnter={() => setIsChapterListVisible(true)}
+            className={isReadingMode ? 'w-full flex justify-center' : 'w-3/5'}
+            style={{ position: 'relative' }}
           >
+            {/* 阅读模式下的居中容器 */}
             <div
-              className="w-1 h-20 rounded-r-full transition-all duration-300"
+              className={isReadingMode ? 'w-3/5 h-full' : 'w-full h-full'}
+              style={{ position: 'relative' }}
+            >
+              {/* 章节列表 - 悬停展开 - 相对于阅读区定位 */}
+              <aside
+                className={`border-r overflow-hidden absolute left-0 top-0 h-full z-30 ${
+                  isChapterListVisible ? 'w-64' : 'w-0'
+                }`}
+                style={{
+                  backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+                  borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8',
+                  transition: 'width 300ms ease-in-out',
+                  boxShadow: isChapterListVisible ? '2px 0 8px rgba(0,0,0,0.1)' : 'none'
+                }}
+                onMouseLeave={() => setIsChapterListVisible(false)}
+              >
+                <div
+                  className={`h-full overflow-y-auto ${
+                    isChapterListVisible ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  style={{ transition: 'opacity 300ms' }}
+                >
+                  <ChapterList
+                    chapters={activeBook.chapters}
+                    activeChapterIndex={safeChapterIndex}
+                    onChapterClick={handleChapterClick}
+                    theme={theme}
+                  />
+                </div>
+              </aside>
+
+              {/* 悬停触发按钮（相对于阅读区左边缘） */}
+              <div
+                className="absolute left-0 top-0 h-full w-8 z-20 flex items-center"
+                onMouseEnter={() => setIsChapterListVisible(true)}
+              >
+                <div
+                  className="w-1 h-20 rounded-r-full transition-all duration-300"
+                  style={{
+                    backgroundColor: isChapterListVisible
+                      ? (theme === 'dark' ? '#8B7355' : '#A67C52')
+                      : (theme === 'dark' ? '#4A3D35' : '#D4C8B8'),
+                    opacity: isChapterListVisible ? 1 : 0.5
+                  }}
+                />
+              </div>
+
+              {/* 阅读内容 */}
+              <div className="w-full h-full">
+                <ReaderContent
+                  ref={readerContentRef}
+                  chapter={currentChapter}
+                  theme={theme}
+                  onTextSelection={handleTextSelection}
+                  bookId={activeBook.id}
+                  chapterIndex={safeChapterIndex}
+                  notes={chapterNotes}
+                  onAnnotate={handleAnnotate}
+                  onNoteClick={handleNoteClick}
+                  jumpToNoteId={jumpToNoteId}
+                  onNextChapter={handleNextChapter}
+                  hasNextChapter={safeChapterIndex < activeBook.chapters.length - 1}
+                  onExplainText={handleExplainText}
+                  isReadingMode={isReadingMode}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 右侧：笔记详情面板 (20% - 与左侧对称) - 阅读模式下隐藏 */}
+          {!isReadingMode && (
+            <div
+              className="w-1/5 border-l"
               style={{
-                backgroundColor: isChapterListVisible
-                  ? (theme === 'dark' ? '#8B7355' : '#A67C52')
-                  : (theme === 'dark' ? '#4A3D35' : '#D4C8B8'),
-                opacity: isChapterListVisible ? 1 : 0.5
+                backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
+                borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
               }}
-            />
-          </div>
-
-          {/* 中间：阅读内容 (60% - 对称布局) */}
-          <div
-            className="w-3/5"
-          >
-            <ReaderContent
-              chapter={currentChapter}
-              theme={theme}
-              onTextSelection={handleTextSelection}
-              bookId={activeBook.id}
-              chapterIndex={safeChapterIndex}
-              notes={chapterNotes}
-              onAnnotate={handleAnnotate}
-              onNoteClick={handleNoteClick}
-              jumpToNoteId={jumpToNoteId}
-              onNextChapter={handleNextChapter}
-              hasNextChapter={safeChapterIndex < activeBook.chapters.length - 1}
-              onExplainText={handleExplainText}
-            />
-          </div>
-
-          {/* 右侧：笔记详情面板 (20% - 与左侧对称) */}
-          <div
-            className="w-1/5 border-l"
-            style={{
-              backgroundColor: theme === 'dark' ? '#3A302A' : '#EAE4D8',
-              borderColor: theme === 'dark' ? '#4A3D35' : '#D4C8B8'
-            }}
-          >
-            <NoteDetailPanel
-              note={selectedNote}
-              onUpdate={handleNoteUpdate}
-              onDelete={handleNoteDelete}
-              categories={categories}
-              tags={tags}
-              onJumpToChapter={handleJumpToChapter}
-              onJumpToNote={handleJumpToNote}
-              theme={theme}
-              bookId={activeBook.id}
-              chapterIndex={safeChapterIndex}
-              onExplainText={handleExplainText}
-              selectedTextForExplain={aiSelectedText}
-            />
-          </div>
+            >
+              <NoteDetailPanel
+                note={selectedNote}
+                onUpdate={handleNoteUpdate}
+                onDelete={handleNoteDelete}
+                categories={categories}
+                tags={tags}
+                onJumpToChapter={handleJumpToChapter}
+                onJumpToNote={handleJumpToNote}
+                theme={theme}
+                bookId={activeBook.id}
+                chapterIndex={safeChapterIndex}
+                onExplainText={handleExplainText}
+                selectedTextForExplain={aiSelectedText}
+              />
+            </div>
+          )}
         </main>
 
         {/* 创建笔记对话框 */}
@@ -925,8 +1254,13 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
           bookId={activeBook.id}
           chapterIndex={safeChapterIndex}
         />
-        
+
         <ToastContainer toasts={toasts} onRemove={removeToast} />
+        <GlobalSettingsDialog
+          isOpen={isGlobalSettingsOpen}
+          onClose={() => setIsGlobalSettingsOpen(false)}
+          theme={theme}
+        />
       </div>
     );
   }

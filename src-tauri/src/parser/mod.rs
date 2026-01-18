@@ -38,6 +38,12 @@ pub struct ChapterData {
     pub raw_html: Option<String>,
     /// 渲染模式："html" 或 "irp"
     pub render_mode: String,
+    /// 标题层级（1-6），用于 Markdown 等格式
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub heading_level: Option<u32>,
+    /// 锚点 ID（用于 Markdown 格式的目录跳转）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anchor_id: Option<String>,
 }
 
 /// 内容块数据
@@ -282,6 +288,8 @@ mod tests {
             confidence: "explicit".to_string(),
             raw_html: None,
             render_mode: "irp".to_string(),
+            heading_level: None,
+            anchor_id: None,
         };
 
         assert_eq!(chapter.title, "第一章");
