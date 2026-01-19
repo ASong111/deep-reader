@@ -14,6 +14,7 @@ import CreateNoteDialog from '../notes/CreateNoteDialog';
 import AnalyticsView from '../notes/AnalyticsView';
 import { ToastContainer, useToastManager } from '../common/Toast';
 import GlobalSettingsDialog from '../common/GlobalSettingsDialog';
+import FirstTimeHint from '../common/FirstTimeHint';
 
 // 后端返回的书籍类型
 interface BackendBook {
@@ -65,6 +66,9 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
 
   // 阅读模式状态
   const [isReadingMode, setIsReadingMode] = useState(false);
+
+  // 首次使用提示状态
+  const [showFirstTimeHint, setShowFirstTimeHint] = useState(false);
 
   // 将后端书籍数据转换为前端格式
   const convertBackendBookToBook = useCallback((backendBook: BackendBook): Book => {
@@ -296,6 +300,14 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
         setActiveChapterIndex(targetChapterIndex);
         setCurrentView('reading');
 
+        // 检查是否首次打开书籍，显示使用提示
+        const hasSeenHint = localStorage.getItem('hasSeenFirstTimeHint');
+        if (!hasSeenHint) {
+          setTimeout(() => {
+            setShowFirstTimeHint(true);
+          }, 1000); // 延迟1秒显示，让用户先看到界面
+        }
+
         // 恢复滚动位置
         if (savedProgress && savedProgress.scroll_offset > 0) {
           console.log('⏳ 准备恢复滚动位置到:', savedProgress.scroll_offset);
@@ -322,6 +334,14 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
       setActiveBook(book);
       setActiveChapterIndex(targetChapterIndex);
       setCurrentView('reading');
+
+      // 检查是否首次打开书籍，显示使用提示
+      const hasSeenHint = localStorage.getItem('hasSeenFirstTimeHint');
+      if (!hasSeenHint) {
+        setTimeout(() => {
+          setShowFirstTimeHint(true);
+        }, 1000); // 延迟1秒显示，让用户先看到界面
+      }
 
       // 恢复滚动位置
       if (savedProgress && savedProgress.scroll_offset > 0) {
@@ -1261,6 +1281,14 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
         <GlobalSettingsDialog
           isOpen={isGlobalSettingsOpen}
           onClose={() => setIsGlobalSettingsOpen(false)}
+          theme={theme}
+        />
+        <FirstTimeHint
+          isOpen={showFirstTimeHint}
+          onClose={() => {
+            setShowFirstTimeHint(false);
+            localStorage.setItem('hasSeenFirstTimeHint', 'true');
+          }}
           theme={theme}
         />
       </div>

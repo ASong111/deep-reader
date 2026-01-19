@@ -49,7 +49,7 @@ const LanguageSwitcher = ({ theme = 'light' }: LanguageSwitcherProps) => {
 
           {/* Dropdown */}
           <div
-            className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-50 border ${
+            className={`absolute left-0 mt-2 w-48 rounded-lg shadow-lg z-50 border ${
               isDark
                 ? 'bg-[#3A302A] border-[#4A3D35]'
                 : 'bg-white border-gray-200'

@@ -2,8 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { NoteStatistics, CategoryStatistics, TagStatistics } from "../../types/notes";
 import { BarChart3, FileText, Calendar, Clock, TrendingUp, Tag as TagIcon } from "lucide-react";
+import { useTranslation } from 'react-i18next';
+import { translateCategoryName } from '../../utils/categoryTranslation';
 
 export default function AnalyticsView() {
+  const { i18n } = useTranslation();
   const [statistics, setStatistics] = useState<NoteStatistics | null>(null);
   const [categoryStats, setCategoryStats] = useState<CategoryStatistics[]>([]);
   const [tagStats, setTagStats] = useState<TagStatistics[]>([]);
@@ -161,7 +164,7 @@ export default function AnalyticsView() {
                       }
                     />
                     <span className="text-sm text-gray-700">
-                      {stat.category_name || "未分类"}
+                      {stat.category_name ? translateCategoryName(stat.category_name, i18n.language) : "未分类"}
                     </span>
                   </div>
                   <div className="flex items-center gap-4">

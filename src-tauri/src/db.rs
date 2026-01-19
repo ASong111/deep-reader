@@ -189,10 +189,10 @@ pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
         "CREATE INDEX IF NOT EXISTS idx_notes_deleted_at ON notes(deleted_at)",
         [],
     )?;
-    
+
     // 插入默认分类
     conn.execute(
-        "INSERT OR IGNORE INTO categories (name, color) VALUES 
+        "INSERT OR IGNORE INTO categories (name, color) VALUES
          ('概念', '#3B82F6'),
          ('观点', '#10B981'),
          ('疑问', '#F59E0B'),

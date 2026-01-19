@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Note, Category, Tag, SearchNotesRequest } from "../../types/notes";
 import { Search, Plus, Filter, X, Trash2, ChevronDown, ChevronUp, ArrowUpDown } from "lucide-react";
+import { useTranslation } from 'react-i18next';
+import { translateCategoryName } from '../../utils/categoryTranslation';
 import TrashView from "./TrashView";
 
 type TabType = 'notes' | 'trash';
@@ -24,6 +26,7 @@ export default function NoteSidebar({
   theme = 'light',
   // currentChapterIndex,
 }: NoteSidebarProps) {
+  const { t, i18n } = useTranslation();
   const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState<TabType>('notes');
   const [notes, setNotes] = useState<Note[]>([]);
@@ -158,14 +161,14 @@ export default function NoteSidebar({
                   e.currentTarget.style.color = isDark ? '#B8A895' : '#6B5D52';
                 }}
               >
-                笔记
+                {t('notes.title')}
               </button>
               <span style={{ color: isDark ? '#B8A895' : '#6B5D52' }}>/</span>
               <span 
                 className="text-sm font-semibold"
                 style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
               >
-                回收站
+                {t('notes.trash')}
               </span>
             </div>
           </div>
@@ -204,7 +207,7 @@ export default function NoteSidebar({
               className="text-sm font-semibold"
               style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
             >
-              笔记
+              {t('notes.title')}
             </span>
             <span style={{ color: isDark ? '#B8A895' : '#6B5D52' }}>/</span>
             <button
@@ -219,7 +222,7 @@ export default function NoteSidebar({
               }}
             >
               <Trash2 className="w-4 h-4" />
-              回收站
+              {t('notes.trash')}
             </button>
           </div>
           <button
@@ -234,7 +237,7 @@ export default function NoteSidebar({
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
             }}
-            title="创建新笔记"
+            title={t('notes.createNewNote')}
           >
             <Plus className="w-5 h-5" />
           </button>
@@ -250,7 +253,7 @@ export default function NoteSidebar({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索笔记..."
+            placeholder={t('notes.search')}
             className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2"
             style={{
               backgroundColor: isDark ? '#2D2520' : '#FFFFFF',
@@ -267,7 +270,7 @@ export default function NoteSidebar({
         >
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4" />
-            <span>高级筛选</span>
+            <span>{t('notes.advancedFilter')}</span>
           </div>
           {showAdvancedSearch ? (
             <ChevronUp className="w-4 h-4" />
@@ -281,45 +284,45 @@ export default function NoteSidebar({
           <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
             {/* 时间范围 */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">时间范围</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">{t('notes.timeRange')}</label>
               <div className="flex gap-2">
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  placeholder="开始日期"
+                  placeholder={t('notes.startDate')}
                 />
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  placeholder="结束日期"
+                  placeholder={t('notes.endDate')}
                 />
               </div>
             </div>
 
             {/* 排序 */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">排序</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">{t('notes.sortBy')}</label>
               <div className="flex gap-2">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as 'created_at' | 'updated_at' | 'title')}
                   className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
-                  <option value="created_at">创建时间</option>
-                  <option value="updated_at">更新时间</option>
-                  <option value="title">标题</option>
+                  <option value="created_at">{t('notes.createdAt')}</option>
+                  <option value="updated_at">{t('notes.updatedAt')}</option>
+                  <option value="title">{t('book.chapters')}</option>
                 </select>
                 <button
                   onClick={() => setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC')}
                   className="px-2 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 flex items-center gap-1"
-                  title={sortOrder === 'ASC' ? '升序' : '降序'}
+                  title={sortOrder === 'ASC' ? t('notes.ascending') : t('notes.descending')}
                 >
                   <ArrowUpDown className="w-3 h-3" />
-                  {sortOrder === 'ASC' ? '升' : '降'}
+                  {sortOrder === 'ASC' ? t('notes.ascending').charAt(0) : t('notes.descending').charAt(0)}
                 </button>
               </div>
             </div>
@@ -330,7 +333,7 @@ export default function NoteSidebar({
                 onClick={clearFilters}
                 className="w-full px-3 py-1.5 text-xs text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
               >
-                清除所有筛选
+                {t('notes.clearFilters')}
               </button>
             )}
           </div>
@@ -357,7 +360,7 @@ export default function NoteSidebar({
                   : {}
               }
             >
-              {category.name}
+              {translateCategoryName(category.name, i18n.language)}
             </button>
           ))}
         </div>
@@ -365,7 +368,7 @@ export default function NoteSidebar({
         {/* 标签筛选（多选） */}
         {tags.length > 0 && (
           <div className="mt-3">
-            <label className="block text-xs font-medium text-gray-700 mb-2">标签筛选</label>
+            <label className="block text-xs font-medium text-gray-700 mb-2">{t('notes.tagFilter')}</label>
             <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
               {tags.map((tag) => (
                 <button
@@ -385,11 +388,11 @@ export default function NoteSidebar({
         )}
 
         {/* 当前筛选标签显示 */}
-        {(selectedCategory || selectedTagIds.length > 0 || startDate || endDate) && (
+        {(selectedCategory || startDate || endDate) && (
           <div className="mt-2 flex flex-wrap gap-1">
             {selectedCategory && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded">
-                {categories.find(c => c.id === selectedCategory)?.name}
+                {translateCategoryName(categories.find(c => c.id === selectedCategory)?.name || '', i18n.language)}
                 <button
                   onClick={() => setSelectedCategory(null)}
                   className="hover:text-indigo-900"
@@ -398,23 +401,6 @@ export default function NoteSidebar({
                 </button>
               </span>
             )}
-            {selectedTagIds.map(tagId => {
-              const tag = tags.find(t => t.id === tagId);
-              return tag ? (
-                <span
-                  key={tagId}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded"
-                >
-                  #{tag.name}
-                  <button
-                    onClick={() => handleTagToggle(tagId)}
-                    className="hover:text-indigo-900"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ) : null;
-            })}
           </div>
         )}
       </div>
@@ -422,11 +408,11 @@ export default function NoteSidebar({
         {/* 笔记列表 */}
       <div className="flex-1 overflow-y-auto">
         {filteredNotes.length === 0 ? (
-          <div 
+          <div
             className="p-8 text-center"
             style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
           >
-            <p className="text-sm">暂无笔记</p>
+            <p className="text-sm">{t('notes.noNotes')}</p>
           </div>
         ) : (
           <div className="p-2">
@@ -495,7 +481,7 @@ export default function NoteSidebar({
                           : {};
                       })()}
                     >
-                      {note.category_name}
+                      {translateCategoryName(note.category_name, i18n.language)}
                     </span>
                   )}
                   {note.tags.map((tag) => (

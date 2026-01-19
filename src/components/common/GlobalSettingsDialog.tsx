@@ -28,7 +28,7 @@ export default function GlobalSettingsDialog({
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div
-          className="rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+          className="rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
           style={{
             backgroundColor: isDark ? '#2D2520' : '#FFFFFF'
           }}
@@ -121,7 +121,7 @@ export default function GlobalSettingsDialog({
                   className="text-sm mb-4"
                   style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
                 >
-                  Configure AI assistant API keys and parameters for text explanation and chapter dialogue features.
+                  {t('settings.aiConfigDescription')}
                 </p>
                 <button
                   onClick={() => setIsAIConfigOpen(true)}
@@ -165,7 +165,7 @@ export default function GlobalSettingsDialog({
                     className="text-sm"
                     style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
                   >
-                    Use the theme toggle button in the bottom right corner to switch between light and dark modes.
+                    {t('settings.themeToggleDescription')}
                   </p>
                 </div>
               </div>

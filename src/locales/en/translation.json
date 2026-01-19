@@ -33,7 +33,13 @@
     "fontSize": "Font Size",
     "lineHeight": "Line Height",
     "readingMode": "Reading Mode",
-    "exitReadingMode": "Exit Reading Mode"
+    "exitReadingMode": "Exit Reading Mode",
+    "firstTimeHint": {
+      "title": "💡 Tips",
+      "fullscreen": "Press F11 to enter fullscreen reading mode",
+      "aiExplain": "Select text to use AI explanation feature",
+      "gotIt": "Got it"
+    }
   },
   "notes": {
     "title": "Notes",
@@ -53,7 +59,46 @@
     "analytics": "Analytics",
     "restore": "Restore",
     "permanentDelete": "Delete Permanently",
-    "emptyTrash": "Empty Trash"
+    "emptyTrash": "Empty Trash",
+    "advancedFilter": "Advanced Filter",
+    "timeRange": "Time Range",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "sortBy": "Sort By",
+    "createdAt": "Created Time",
+    "updatedAt": "Updated Time",
+    "ascending": "Ascending",
+    "descending": "Descending",
+    "clearFilters": "Clear All Filters",
+    "tagFilter": "Tag Filter",
+    "createNewNote": "Create New Note",
+    "selectNotePrompt": "Select a note to view details",
+    "noteDetail": "Note Details",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "saveFailed": "Save Failed",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "titleLabel": "Title",
+    "contentLabel": "Content",
+    "categoryLabel": "Category",
+    "tagsLabel": "Tags",
+    "noCategory": "No Category",
+    "noContent": "No Content",
+    "quickJump": "Quick Jump",
+    "jumpToChapter": "Jump to Chapter",
+    "locateInText": "Locate in Text",
+    "titleRequired": "Title cannot be empty",
+    "updateFailed": "Failed to update note",
+    "deleteFailed": "Failed to delete note",
+    "createdTime": "Created",
+    "updatedTime": "Updated",
+    "concept": "Concept",
+    "opinion": "Opinion",
+    "question": "Question",
+    "action": "Action"
   },
   "ai": {
     "title": "AI Assistant",
@@ -67,7 +112,13 @@
     "model": "Model",
     "temperature": "Temperature",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "switchToChat": "Switch to Chat Mode",
+    "switchToExplain": "Switch to Explain Mode",
+    "selectTextPrompt": "Please select text and click the AI Explain button",
+    "welcomeMessage": "Hello! I'm your reading assistant. You can ask me anything about the current chapter.",
+    "explainError": "Error",
+    "chatError": "Error"
   },
   "settings": {
     "title": "Settings",
@@ -79,7 +130,9 @@
     "darkMode": "Dark Mode",
     "autoDetect": "Auto Detect",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "aiConfigDescription": "Configure AI assistant API keys and parameters for text explanation and chapter dialogue features.",
+    "themeToggleDescription": "Use the theme toggle button in the bottom right corner to switch between light and dark modes."
   },
   "theme": {
     "light": "Light",

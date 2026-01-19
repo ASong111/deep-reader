@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { MessageSquare, X, Send, Loader2, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ThemeMode } from '../immersive-reader/types';
 
 interface AISidebarProps {
@@ -27,6 +28,7 @@ const AISidebar = ({
   chapterIndex,
   initialText,
 }: AISidebarProps) => {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<SidebarMode>('explain');
   const [explainResult, setExplainResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -72,7 +74,7 @@ const AISidebar = ({
       setExplainResult(result);
     } catch (error) {
       console.error('AI 释义失败:', error);
-      setExplainResult(`错误: ${error instanceof Error ? error.message : String(error)}`);
+      setExplainResult(`${t('ai.explainError')}: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +116,7 @@ const AISidebar = ({
       console.error('AI 对话失败:', error);
       const errorMessage: ChatMessage = {
         role: 'assistant',
-        content: `错误: ${error instanceof Error ? error.message : String(error)}`,
+        content: `${t('ai.chatError')}: ${error instanceof Error ? error.message : String(error)}`,
       };
       setChatMessages(prev => [...prev, errorMessage]);
     } finally {
@@ -130,7 +132,7 @@ const AISidebar = ({
     if (chatMessages.length === 0) {
       setChatMessages([{
         role: 'assistant',
-        content: '你好！我是你的阅读助手。你可以问我关于当前章节的任何问题。',
+        content: t('ai.welcomeMessage'),
       }]);
     }
   }, [chatMessages.length]);
@@ -173,7 +175,7 @@ const AISidebar = ({
             className="text-lg font-semibold"
             style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
           >
-            AI 助手
+            {t('ai.title')}
           </h2>
         </div>
         <div className="flex items-center gap-2">
@@ -191,7 +193,7 @@ const AISidebar = ({
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = isDark ? '#4A3D35' : '#D4C8B8';
             }}
-            title={mode === 'explain' ? '切换到对话模式' : '切换到释义模式'}
+            title={mode === 'explain' ? t('ai.switchToChat') : t('ai.switchToExplain')}
           >
             <MessageSquare className="w-4 h-4" />
           </button>
@@ -235,7 +237,7 @@ const AISidebar = ({
                 className="text-center text-sm"
                 style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
               >
-                请选中文字后点击 AI 释义按钮
+                {t('ai.selectTextPrompt')}
               </div>
             )}
           </div>
@@ -300,7 +302,7 @@ const AISidebar = ({
                   onChange={(e) => {
                     setInputMessage(e.target.value);
                   }}
-                  placeholder="输入问题..."
+                  placeholder={t('ai.askQuestion')}
                   disabled={isLoading}
                   className="flex-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
                   style={{

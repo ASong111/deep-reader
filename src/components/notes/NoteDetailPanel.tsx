@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Note, Category, Tag, UpdateNoteRequest } from "../../types/notes";
 import { Edit2, Trash2, Save, X, Loader2, CheckCircle2, AlertCircle, Navigation, MapPin, MessageSquare } from "lucide-react";
+import { useTranslation } from 'react-i18next';
+import { translateCategoryName } from '../../utils/categoryTranslation';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -30,6 +32,7 @@ export default function NoteDetailPanel({
   onJumpToNote,
   theme = 'light',
 }: NoteDetailPanelProps) {
+  const { t, i18n } = useTranslation();
   const isDark = theme === 'dark';
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
@@ -108,7 +111,7 @@ export default function NoteDetailPanel({
     if (!note) return;
 
     if (!editedTitle.trim()) {
-        alert("标题不能为空");
+        alert(t('notes.titleRequired'));
         return;
       }
 
@@ -133,19 +136,19 @@ export default function NoteDetailPanel({
     } catch (error) {
       console.error("更新笔记失败:", error);
       setSaveStatus('error');
-      alert("更新笔记失败");
+      alert(t('notes.updateFailed'));
     }
   };
 
   const handleDelete = async () => {
     if (!note) return;
-    if (confirm("确定要删除这条笔记吗？")) {
+    if (confirm(t('notes.confirmDelete'))) {
       try {
         await invoke("delete_note", { id: note.id });
         onDelete(note.id);
       } catch (error) {
         console.error("删除笔记失败:", error);
-        alert("删除笔记失败");
+        alert(t('notes.deleteFailed'));
       }
     }
   };
@@ -221,26 +224,26 @@ export default function NoteDetailPanel({
                   className="text-lg font-semibold"
                   style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
                 >
-                  笔记详情
+                  {t('notes.noteDetail')}
                 </h3>
                 {isEditing && (
                   <div className="flex items-center gap-2 text-xs">
                     {saveStatus === 'saving' && (
                       <span className="flex items-center gap-1 text-blue-600">
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        保存中...
+                        {t('notes.saving')}
                       </span>
                     )}
                     {saveStatus === 'saved' && (
                       <span className="flex items-center gap-1 text-green-600">
                         <CheckCircle2 className="w-3 h-3" />
-                        已保存
+                        {t('notes.saved')}
                       </span>
                     )}
                     {saveStatus === 'error' && (
                       <span className="flex items-center gap-1 text-red-600">
                         <AlertCircle className="w-3 h-3" />
-                        保存失败
+                        {t('notes.saveFailed')}
                       </span>
                     )}
                   </div>
@@ -259,7 +262,7 @@ export default function NoteDetailPanel({
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = 'transparent';
                       }}
-                      title="保存"
+                      title={t('notes.save')}
                     >
                       <Save className="w-4 h-4" />
                     </button>
@@ -281,7 +284,7 @@ export default function NoteDetailPanel({
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = 'transparent';
                       }}
-                      title="取消"
+                      title={t('notes.cancel')}
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -298,7 +301,7 @@ export default function NoteDetailPanel({
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = 'transparent';
                       }}
-                      title="编辑"
+                      title={t('notes.edit')}
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -312,7 +315,7 @@ export default function NoteDetailPanel({
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = 'transparent';
                       }}
-                      title="删除"
+                      title={t('notes.delete')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -335,11 +338,11 @@ export default function NoteDetailPanel({
                     className="w-4 h-4"
                     style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
                   />
-                  <span 
+                  <span
                     className="text-xs font-medium"
                     style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
                   >
-                    快速跳转
+                    {t('notes.quickJump')}
                   </span>
                 </div>
                 <div className="flex gap-2 mt-2">
@@ -357,10 +360,10 @@ export default function NoteDetailPanel({
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = isDark ? '#8B7355' : '#A67C52';
                       }}
-                      title="跳转到章节"
+                      title={t('notes.jumpToChapter')}
                     >
                       <Navigation className="w-3 h-3" />
-                      跳转到章节
+                      {t('notes.jumpToChapter')}
                     </button>
                   )}
                   {onJumpToNote && (
@@ -377,10 +380,10 @@ export default function NoteDetailPanel({
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = isDark ? '#8B7355' : '#A67C52';
                       }}
-                      title="在文中定位"
+                      title={t('notes.locateInText')}
                     >
                       <MapPin className="w-3 h-3" />
-                      在文中定位
+                      {t('notes.locateInText')}
                     </button>
                   )}
                 </div>
@@ -392,11 +395,11 @@ export default function NoteDetailPanel({
               {isEditing ? (
                 <div className="space-y-4">
                   <div>
-                    <label 
+                    <label
                       className="block text-sm font-medium mb-1"
                       style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
                     >
-                      标题
+                      {t('notes.titleLabel')}
                     </label>
                     <input
                       type="text"
@@ -411,11 +414,11 @@ export default function NoteDetailPanel({
                     />
                   </div>
                   <div>
-                    <label 
+                    <label
                       className="block text-sm font-medium mb-1"
                       style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
                     >
-                      内容
+                      {t('notes.contentLabel')}
                     </label>
                     <textarea
                       value={editedContent}
@@ -431,7 +434,7 @@ export default function NoteDetailPanel({
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      分类
+                      {t('notes.categoryLabel')}
                     </label>
                     <select
                       value={selectedCategoryId || ""}
@@ -442,7 +445,7 @@ export default function NoteDetailPanel({
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                      <option value="">无分类</option>
+                      <option value="">{t('notes.noCategory')}</option>
                       {categories.map((cat) => (
                         <option key={cat.id} value={cat.id}>
                           {cat.name}
@@ -452,7 +455,7 @@ export default function NoteDetailPanel({
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      标签
+                      {t('notes.tagsLabel')}
                     </label>
                     <div className="flex flex-wrap gap-2">
                       {tags.map((tag) => (
@@ -502,7 +505,7 @@ export default function NoteDetailPanel({
                             : {};
                         })()}
                       >
-                        {note.category_name}
+                        {translateCategoryName(note.category_name, i18n.language)}
                       </span>
                     )}
                   </div>
@@ -514,16 +517,16 @@ export default function NoteDetailPanel({
                     </div>
                   )}
                   <div>
-                    <p 
+                    <p
                       className="whitespace-pre-wrap"
                       style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
                     >
-                      {note.content || "无内容"}
+                      {note.content || t('notes.noContent')}
                     </p>
                   </div>
                   {note.tags.length > 0 && (
                     <div>
-                      <p className="text-sm font-medium text-gray-700 mb-2">标签</p>
+                      <p className="text-sm font-medium text-gray-700 mb-2">{t('notes.tagsLabel')}</p>
                       <div className="flex flex-wrap gap-2">
                         {note.tags.map((tag) => (
                           <span
@@ -538,10 +541,10 @@ export default function NoteDetailPanel({
                   )}
                   <div className="pt-4 border-t border-gray-200">
                     <p className="text-xs text-gray-400">
-                      创建时间: {new Date(note.created_at).toLocaleString("zh-CN")}
+                      {t('notes.createdTime')}: {new Date(note.created_at).toLocaleString("zh-CN")}
                     </p>
                     <p className="text-xs text-gray-400">
-                      更新时间: {new Date(note.updated_at).toLocaleString("zh-CN")}
+                      {t('notes.updatedTime')}: {new Date(note.updated_at).toLocaleString("zh-CN")}
                     </p>
                   </div>
                 </div>
@@ -559,7 +562,7 @@ export default function NoteDetailPanel({
             >
               <MessageSquare className="w-8 h-8 opacity-20" />
             </div>
-            <p className="text-sm">选择一个笔记查看详情</p>
+            <p className="text-sm">{t('notes.selectNotePrompt')}</p>
           </div>
         )}
       </div>

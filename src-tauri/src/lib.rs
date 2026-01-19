@@ -2247,6 +2247,56 @@ fn get_reading_progress(app: AppHandle, book_id: i32) -> Result<Option<ReadingPr
     }
 }
 
+/// 调试：获取所有标签（包括重复检查）
+#[tauri::command]
+fn debug_get_all_tags(app: AppHandle) -> Result<String, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+
+    let mut stmt = conn.prepare("SELECT id, name, color FROM tags ORDER BY id")
+        .map_err(|e| e.to_string())?;
+
+    let tag_iter = stmt.query_map([], |row| {
+        Ok(format!("ID: {}, Name: {}, Color: {:?}",
+            row.get::<_, i32>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, Option<String>>(2)?
+        ))
+    }).map_err(|e| e.to_string())?;
+
+    let mut result = String::from("All tags in database:\n");
+    for (i, tag) in tag_iter.enumerate() {
+        result.push_str(&format!("{}. {}\n", i + 1, tag.map_err(|e| e.to_string())?));
+    }
+
+    Ok(result)
+}
+
+/// 清理重复的默认分类
+#[tauri::command]
+fn cleanup_duplicate_categories(app: AppHandle) -> Result<String, String> {
+    let db_path = get_db_path(&app);
+    let conn = db::init_db(&db_path).map_err(|e| e.to_string())?;
+
+    // 首先，更新ID 1-4的英文名称为中文
+    conn.execute("UPDATE categories SET name = '概念' WHERE id = 1", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute("UPDATE categories SET name = '观点' WHERE id = 2", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute("UPDATE categories SET name = '疑问' WHERE id = 3", [])
+        .map_err(|e| e.to_string())?;
+    conn.execute("UPDATE categories SET name = '行动' WHERE id = 4", [])
+        .map_err(|e| e.to_string())?;
+
+    // 然后删除ID > 4的重复分类
+    let deleted = conn.execute(
+        "DELETE FROM categories WHERE id > 4 AND name IN ('概念', '观点', '疑问', '行动', 'Concept', 'Opinion', 'Question', 'Action')",
+        [],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(format!("Updated 4 categories and deleted {} duplicates", deleted))
+}
+
 /// 阅读进度结构
 #[derive(Serialize, Deserialize, Debug)]
 struct ReadingProgress {
@@ -2322,6 +2372,8 @@ pub fn run() {
             get_reading_units,
             save_reading_progress,
             get_reading_progress,
+            debug_get_all_tags,
+            cleanup_duplicate_categories,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
