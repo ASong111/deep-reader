@@ -1,4 +1,5 @@
 import { memo, useMemo, useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Highlighter, Underline, StickyNote, X, ChevronRight, Sparkles } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import ReactMarkdown from 'react-markdown';
@@ -73,6 +74,7 @@ const ReaderContent = forwardRef<ReaderContentHandle, ReaderContentProps>(({
   hasNextChapter = false,
   isReadingMode = false,
 }, ref) => {
+  const { t } = useTranslation();
   const isDark = theme === 'dark';
 
   const contentRef = useRef<HTMLDivElement>(null);
@@ -528,14 +530,14 @@ const ReaderContent = forwardRef<ReaderContentHandle, ReaderContentProps>(({
               <button
                 onClick={handleExplainText}
                 className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900 rounded transition-all duration-200 group active:scale-95"
-                title="AI 释义"
+                title={t('ai.explain')}
               >
                 <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-200" />
               </button>
               <button
                 onClick={handleClearSelection}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors group"
-                title="取消"
+                title={t('common.cancel')}
               >
                 <X className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:scale-110 transition-transform" />
               </button>
@@ -545,14 +547,14 @@ const ReaderContent = forwardRef<ReaderContentHandle, ReaderContentProps>(({
               <button
                 onClick={applyHighlight}
                 className="p-2 hover:bg-yellow-100 dark:hover:bg-yellow-900 rounded transition-all duration-200 group active:scale-95"
-                title="高亮"
+                title={t('notes.highlight')}
               >
                 <Highlighter className="w-4 h-4 text-yellow-600 dark:text-yellow-400 group-hover:scale-110 transition-transform duration-200" />
               </button>
               <button
                 onClick={applyUnderline}
                 className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900 rounded transition-all duration-200 group active:scale-95"
-                title="下划线"
+                title={t('notes.annotation')}
               >
                 <Underline className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-200" />
               </button>
@@ -560,21 +562,21 @@ const ReaderContent = forwardRef<ReaderContentHandle, ReaderContentProps>(({
               <button
                 onClick={handleExplainText}
                 className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900 rounded transition-all duration-200 group active:scale-95"
-                title="AI 释义"
+                title={t('ai.explain')}
               >
                 <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-200" />
               </button>
               <button
                 onClick={handleCreateNote}
                 className="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900 rounded transition-all duration-200 group active:scale-95"
-                title="创建笔记"
+                title={t('notes.createNote')}
               >
                 <StickyNote className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-200" />
               </button>
               <button
                 onClick={handleClearSelection}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors group"
-                title="取消"
+                title={t('common.cancel')}
               >
                 <X className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:scale-110 transition-transform" />
               </button>
@@ -689,7 +691,7 @@ const ReaderContent = forwardRef<ReaderContentHandle, ReaderContentProps>(({
                 color: isDark ? '#F5F1E8' : '#FFFFFF'
               }}
             >
-              <span>下一章</span>
+              <span>{t('reader.nextChapter')}</span>
               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
             </button>
           </div>

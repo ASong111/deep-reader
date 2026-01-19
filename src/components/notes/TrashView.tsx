@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { Note } from "../../types/notes";
 import { Trash2, RotateCcw, X, Calendar } from "lucide-react";
@@ -12,6 +13,7 @@ export default function TrashView({
   onRestore,
   onPermanentlyDelete,
 }: TrashViewProps) {
+  const { t } = useTranslation();
   const [trashNotes, setTrashNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -44,7 +46,7 @@ export default function TrashView({
   }, [loadTrashNotes, onRestore]);
 
   const handlePermanentlyDelete = useCallback(async (id: number) => {
-    if (!confirm("确定要永久删除这条笔记吗？此操作无法撤销。")) {
+    if (!confirm(t('notes.confirmDelete'))) {
       return;
     }
     try {
@@ -53,9 +55,9 @@ export default function TrashView({
       onPermanentlyDelete?.(id);
     } catch (error) {
       console.error("永久删除失败:", error);
-      alert(`删除失败: ${error}`);
+      alert(`${t('errors.deleteFailed')}: ${error}`);
     }
-  }, [loadTrashNotes, onPermanentlyDelete]);
+  }, [loadTrashNotes, onPermanentlyDelete, t]);
 
   const handleBatchRestore = useCallback(async () => {
     if (selectedIds.size === 0) return;

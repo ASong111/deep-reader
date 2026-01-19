@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { CreateNoteRequest, Category, Tag } from "../../types/notes";
 import { X } from "lucide-react";
@@ -20,6 +21,7 @@ export default function CreateNoteDialog({
   bookId,
   chapterIndex,
 }: CreateNoteDialogProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
@@ -60,7 +62,7 @@ export default function CreateNoteDialog({
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      alert("请输入笔记标题");
+      alert(t('notes.createNote') + ': ' + t('common.error'));
       return;
     }
 
@@ -80,7 +82,7 @@ export default function CreateNoteDialog({
       handleClose();
     } catch (error) {
       console.error("创建笔记失败:", error);
-      alert("创建笔记失败");
+      alert(t('errors.saveFailed'));
     }
   };
 
@@ -98,7 +100,7 @@ export default function CreateNoteDialog({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">创建新笔记</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t('notes.createNote')}</h3>
           <button
             onClick={handleClose}
             className="p-1 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
@@ -117,13 +119,13 @@ export default function CreateNoteDialog({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                标题 <span className="text-red-500">*</span>
+                {t('notes.title')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="输入笔记标题"
+                placeholder={t('notes.createNote')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 autoFocus
               />
@@ -131,20 +133,20 @@ export default function CreateNoteDialog({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                内容
+                {t('notes.content')}
               </label>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={6}
-                placeholder="输入笔记内容..."
+                placeholder={t('notes.createNote')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                分类
+                {t('notes.category')}
               </label>
               <select
                 value={selectedCategoryId || ""}
@@ -155,7 +157,7 @@ export default function CreateNoteDialog({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                <option value="">无分类</option>
+                <option value="">{t('notes.category')}</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
@@ -166,7 +168,7 @@ export default function CreateNoteDialog({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                标签
+                {t('notes.tags')}
               </label>
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => (
@@ -201,13 +203,13 @@ export default function CreateNoteDialog({
             onClick={handleClose}
             className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSubmit}
             className="px-4 py-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
           >
-            创建
+            {t('common.save')}
           </button>
         </div>
       </div>

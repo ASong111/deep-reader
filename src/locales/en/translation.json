@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "Deep Reader",
+    "version": "v2.0",
+    "tagline": "Immersive Reading & Knowledge Management"
+  },
+  "nav": {
+    "library": "Library",
+    "tryImmersiveUI": "Try Immersive UI",
+    "importEPUB": "Import EPUB",
+    "processing": "Processing...",
+    "backToLibrary": "Back to Library",
+    "tableOfContents": "Table of Contents"
+  },
+  "library": {
+    "items": "items",
+    "selectBook": "Select a book to start reading",
+    "noBooks": "No books in library",
+    "addFirstBook": "Add your first book to get started"
+  },
+  "book": {
+    "remove": "Remove",
+    "confirmRemove": "Are you sure you want to remove this book?",
+    "debug": "Debug Panel",
+    "chapters": "Chapters",
+    "progress": "Progress"
+  },
+  "reader": {
+    "loading": "Loading...",
+    "noContent": "No content available",
+    "previousChapter": "Previous Chapter",
+    "nextChapter": "Next Chapter",
+    "fontSize": "Font Size",
+    "lineHeight": "Line Height",
+    "readingMode": "Reading Mode",
+    "exitReadingMode": "Exit Reading Mode"
+  },
+  "notes": {
+    "title": "Notes",
+    "createNote": "Create Note",
+    "editNote": "Edit Note",
+    "deleteNote": "Delete Note",
+    "confirmDelete": "Are you sure you want to delete this note?",
+    "search": "Search notes...",
+    "category": "Category",
+    "tags": "Tags",
+    "highlight": "Highlight",
+    "annotation": "Annotation",
+    "bookmark": "Bookmark",
+    "noNotes": "No notes yet",
+    "createFirstNote": "Create your first note",
+    "trash": "Trash",
+    "analytics": "Analytics",
+    "restore": "Restore",
+    "permanentDelete": "Delete Permanently",
+    "emptyTrash": "Empty Trash"
+  },
+  "ai": {
+    "title": "AI Assistant",
+    "explain": "Explain",
+    "summarize": "Summarize",
+    "translate": "Translate",
+    "askQuestion": "Ask a question...",
+    "config": "AI Configuration",
+    "provider": "Provider",
+    "apiKey": "API Key",
+    "model": "Model",
+    "temperature": "Temperature",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "appearance": "Appearance",
+    "language": "Language",
+    "theme": "Theme",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "autoDetect": "Auto Detect",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "switchToLight": "Switch to Light Mode",
+    "switchToDark": "Switch to Dark Mode"
+  },
+  "debug": {
+    "title": "Reading Unit Debugger",
+    "back": "Back",
+    "segments": "Segments",
+    "readingUnits": "Reading Units",
+    "scores": "Scores",
+    "features": "Features",
+    "timeline": "Timeline"
+  },
+  "common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Info"
+  },
+  "errors": {
+    "uploadFailed": "Upload failed",
+    "loadFailed": "Failed to load",
+    "saveFailed": "Failed to save",
+    "deleteFailed": "Failed to delete",
+    "networkError": "Network error",
+    "unknownError": "Unknown error occurred"
+  }
+}

@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import DOMPurify from "dompurify";
 import { Sun, Moon, Bug } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 // 导入沉浸式阅读器组件
 import ImmersiveReader from "./components/immersive-reader/ImmersiveReader";
 import { ThemeMode } from "./components/immersive-reader/types";
@@ -23,6 +24,7 @@ interface Chapter {
 }
 
 function App() {
+  const { t } = useTranslation();
   const [books] = useState<Book[]>([]);
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -136,7 +138,7 @@ function App() {
 
   const handleRemove = useCallback(async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    if(confirm("确定移除这本书吗?")) {
+    if(confirm(t('book.confirmRemove'))) {
         await invoke("remove_book", { id });
         // loadBooks();
         if (selectedBookId === id) {
@@ -145,7 +147,7 @@ function App() {
             setCurrentContent("");
         }
     }
-  }, [ selectedBookId]);
+  }, [t, selectedBookId]);
 
   // 根据 UI 模式选择内容
   const mainContent = useImmersiveUI ? (
@@ -164,9 +166,9 @@ function App() {
         <div className={`font-bold text-xl flex items-center gap-2 ${
           isDark ? 'text-[#D4A574]' : 'text-indigo-600'
         }`}>
-           📚 DeepReader <span className={`text-xs px-2 py-0.5 rounded ${
+           📚 {t('app.name')} <span className={`text-xs px-2 py-0.5 rounded ${
              isDark ? 'bg-[#4A3D35] text-[#B8A895]' : 'bg-gray-100 text-gray-500'
-           }`}>v2.0</span>
+           }`}>{t('app.version')}</span>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -175,18 +177,18 @@ function App() {
               isDark ? 'bg-[#4A3D35] hover:bg-[#524439] text-[#E8DDD0]' : 'bg-purple-600 hover:bg-purple-700 text-white'
             }`}
           >
-            🎨 尝试沉浸式 UI
+            🎨 {t('nav.tryImmersiveUI')}
           </button>
         <button
           onClick={handleUpload}
           disabled={loading}
           className={`px-4 py-2 rounded-md text-sm font-medium text-white transition-all shadow-sm ${
-            loading 
-              ? (isDark ? "bg-[#4A3D35] cursor-wait" : "bg-indigo-300 cursor-wait") 
+            loading
+              ? (isDark ? "bg-[#4A3D35] cursor-wait" : "bg-indigo-300 cursor-wait")
               : (isDark ? "bg-[#8B7355] hover:bg-[#9A8164]" : "bg-indigo-600 hover:bg-indigo-700")
           }`}
         >
-            {loading ? "Processing..." : "Import EPUB"}
+            {loading ? t('nav.processing') : t('nav.importEPUB')}
           </button>
         </div>
       </nav>
@@ -202,8 +204,8 @@ function App() {
               <div className="flex items-center justify-between mb-4">
                   <h2 className={`text-xs font-semibold uppercase tracking-wider ${
                     isDark ? 'text-[#8B7355]' : 'text-gray-500'
-                  }`}>Library</h2>
-                  <span className="text-xs text-gray-400">{books.length} items</span>
+                  }`}>{t('nav.library')}</h2>
+                  <span className="text-xs text-gray-400">{books.length} {t('library.items')}</span>
               </div>
               <div className="space-y-3">
                 {books.map((book) => (
@@ -239,7 +241,7 @@ function App() {
                         className={`p-1 hover:text-blue-500 ${
                           isDark ? 'text-[#8B7355]' : 'text-gray-300'
                         }`}
-                        title="Debug 面板"
+                        title={t('book.debug')}
                       >
                         <Bug className="w-4 h-4" />
                       </button>
@@ -261,19 +263,19 @@ function App() {
                <div className={`p-3 border-b flex items-center ${
                  isDark ? 'bg-[#3A302A] border-[#4A3D35]' : 'bg-gray-50 border-gray-200'
                }`}>
-                 <button 
+                 <button
                    onClick={() => setSelectedBookId(null)}
                    className={`text-xs font-medium flex items-center gap-1 transition-colors ${
                      isDark ? 'text-[#D4A574] hover:text-[#E8DDD0]' : 'text-indigo-600 hover:text-indigo-800'
                    }`}
                  >
-                   <span>&larr;</span> 返回图书馆
+                   <span>&larr;</span> {t('nav.backToLibrary')}
                  </button>
                </div>
                <div className="p-4 overflow-y-auto flex-1">
                  <h2 className={`text-xs font-semibold uppercase tracking-wider mb-4 ${
                    isDark ? 'text-[#8B7355]' : 'text-gray-500'
-                 }`}>Table of Contents</h2>
+                 }`}>{t('nav.tableOfContents')}</h2>
                  <ul className="space-y-1">
                    {chapters.map((chapter, idx) => (
                      <li 
@@ -312,7 +314,7 @@ function App() {
               isDark ? 'text-[#4A3D35]' : 'text-gray-300'
             }`}>
               <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-              <p className="text-sm font-medium">Select a book to start reading</p>
+              <p className="text-sm font-medium">{t('library.selectBook')}</p>
             </div>
           )}
         </main>
@@ -332,7 +334,7 @@ function App() {
               }}
               className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
             >
-              <span>&larr;</span> 返回
+              <span>&larr;</span> {t('debug.back')}
             </button>
           </div>
           <ReadingUnitDebugger bookId={debugBookId} />
@@ -348,7 +350,7 @@ function App() {
           backgroundColor: theme === 'dark' ? '#D4A574' : '#5A4A3A',
           color: theme === 'dark' ? '#2D2520' : '#F5F1E8'
         }}
-        title={theme === 'dark' ? '切换到日间模式' : '切换到夜间模式'}
+        title={theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
       >
         {theme === 'dark' ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
       </button>

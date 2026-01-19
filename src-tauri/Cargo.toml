@@ -1,8 +1,8 @@
 [package]
 name = "deep-reader"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Deep Reader - Immersive Reading & Knowledge Management Tool"
+authors = ["Deep Reader Team"]
 edition = "2021"
 default-run = "deep-reader"
 

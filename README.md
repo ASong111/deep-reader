@@ -1,6 +1,10 @@
 # Deep Reader (深度阅读器)
 
 <p align="center">
+  <a href="README_EN.md">English</a> | <strong>简体中文</strong>
+</p>
+
+<p align="center">
   <img src="src-tauri/icons/128x128.png" width="128" height="128" alt="Deep Reader Logo">
 </p>
 

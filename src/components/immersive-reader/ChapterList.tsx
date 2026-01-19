@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Chapter, ThemeMode } from './types';
 import { ChevronDown } from 'lucide-react';
 
@@ -41,6 +42,7 @@ interface ChapterWithLevel extends Chapter {
 }
 
 const ChapterList = memo(({ chapters, activeChapterIndex, onChapterClick, theme = 'light' }: ChapterListProps) => {
+  const { t } = useTranslation();
   const isDark = theme === 'dark';
 
   // 为章节添加层级信息
@@ -103,7 +105,7 @@ const ChapterList = memo(({ chapters, activeChapterIndex, onChapterClick, theme 
         className="text-sm font-semibold uppercase tracking-wider mb-4"
         style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
       >
-        章节目录
+        {t('nav.tableOfContents')}
       </h2>
       <ul className="space-y-0.5">
         {visibleChapters.map((chapter) => {

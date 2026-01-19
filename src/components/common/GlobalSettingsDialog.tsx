@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { X } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import AIConfigDialog from "../ai/AIConfigDialog";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 interface GlobalSettingsDialogProps {
   isOpen: boolean;
@@ -15,6 +17,7 @@ export default function GlobalSettingsDialog({
   onClose,
   theme = 'light',
 }: GlobalSettingsDialogProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<SettingsTab>('ai');
   const [isAIConfigOpen, setIsAIConfigOpen] = useState(false);
   const isDark = theme === 'dark';
@@ -41,7 +44,7 @@ export default function GlobalSettingsDialog({
               className="text-lg font-semibold"
               style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
             >
-              全局设置
+              {t('settings.title')}
             </h3>
             <button
               onClick={onClose}
@@ -82,7 +85,7 @@ export default function GlobalSettingsDialog({
                   : 'transparent'
               }}
             >
-              AI 助手配置
+              {t('ai.config')}
             </button>
             <button
               onClick={() => setActiveTab('general')}
@@ -101,7 +104,7 @@ export default function GlobalSettingsDialog({
                   : 'transparent'
               }}
             >
-              通用设置
+              {t('settings.general')}
             </button>
           </div>
 
@@ -118,7 +121,7 @@ export default function GlobalSettingsDialog({
                   className="text-sm mb-4"
                   style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
                 >
-                  配置 AI 助手的 API 密钥和参数，用于文字释义和章节对话功能。
+                  Configure AI assistant API keys and parameters for text explanation and chapter dialogue features.
                 </p>
                 <button
                   onClick={() => setIsAIConfigOpen(true)}
@@ -134,19 +137,37 @@ export default function GlobalSettingsDialog({
                     e.currentTarget.style.backgroundColor = isDark ? '#8B7355' : '#A67C52';
                   }}
                 >
-                  打开 AI 配置
+                  {t('ai.config')}
                 </button>
               </div>
             )}
 
             {activeTab === 'general' && (
-              <div className="space-y-4">
-                <p
-                  className="text-sm"
-                  style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
-                >
-                  通用设置功能即将推出...
-                </p>
+              <div className="space-y-6">
+                <div>
+                  <h4
+                    className="text-sm font-semibold mb-3"
+                    style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+                  >
+                    {t('settings.language')}
+                  </h4>
+                  <LanguageSwitcher theme={theme} />
+                </div>
+
+                <div>
+                  <h4
+                    className="text-sm font-semibold mb-3"
+                    style={{ color: isDark ? '#E8DDD0' : '#3E3530' }}
+                  >
+                    {t('settings.appearance')}
+                  </h4>
+                  <p
+                    className="text-sm"
+                    style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
+                  >
+                    Use the theme toggle button in the bottom right corner to switch between light and dark modes.
+                  </p>
+                </div>
               </div>
             )}
           </div>

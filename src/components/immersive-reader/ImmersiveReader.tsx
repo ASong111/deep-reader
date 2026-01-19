@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BookOpen, ArrowLeft, Plus, BarChart3, Settings } from 'lucide-react';
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -34,6 +35,7 @@ interface ImmersiveReaderProps {
 }
 
 const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
+  const { t } = useTranslation();
   const { toasts, removeToast, showSuccess, showError } = useToastManager();
   const [currentView, setCurrentView] = useState<ViewMode>('library');
   const [books, setBooks] = useState<Book[]>([]);
@@ -159,14 +161,14 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
       // 如果导入完成，刷新书籍列表
       if (status === "completed") {
         loadBooks();
-        showSuccess(`书籍导入完成！`);
+        showSuccess(t('nav.processing') + ' ' + t('common.success'));
       }
     });
 
     // 监听导入错误事件
     const unlistenError = listen<{book_id: number, error: string}>("import-error", (event) => {
       console.error("导入错误:", event.payload);
-      showError(`导入失败: ${event.payload.error}`);
+      showError(`${t('errors.uploadFailed')}: ${event.payload.error}`);
       loadBooks(); // 刷新列表以显示失败状态
     });
 
@@ -187,9 +189,9 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
         setIsReadingMode(prev => {
           const newMode = !prev;
           if (newMode) {
-            showSuccess('已进入阅读模式，按 F11 退出');
+            showSuccess(t('reader.readingMode') + ' - F11 ' + t('reader.exitReadingMode'));
           } else {
-            showSuccess('已退出阅读模式');
+            showSuccess(t('reader.exitReadingMode'));
           }
           return newMode;
         });
@@ -208,14 +210,14 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
     setLoading(true);
     try {
       await invoke<string>("upload_epub_file");
-      showSuccess("书籍已加入导入队列，正在后台处理...");
+      showSuccess(t('nav.processing'));
     } catch (error) {
       console.error("Upload Failed:", error);
-      showError(`导入失败: ${error}`);
+      showError(`${t('errors.uploadFailed')}: ${error}`);
     } finally {
       setLoading(false);
     }
-  }, [showSuccess, showError]);
+  }, [showSuccess, showError, t]);
 
   // 加载书籍的章节数据
   const loadBookChapters = useCallback(async (bookId: number) => {
@@ -715,11 +717,11 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
                   className="w-8 h-8"
                   style={{ color: theme === 'dark' ? '#D4A574' : '#A67C52' }}
                 />
-                <h1 
+                <h1
                   className="text-2xl font-bold"
                   style={{ color: theme === 'dark' ? '#E8DDD0' : '#3E3530' }}
                 >
-                  数据分析
+                  {t('notes.analytics')}
                 </h1>
               </div>
               <nav className="flex items-center gap-4">
@@ -740,7 +742,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
                   }}
                 >
                   <BookOpen className="w-4 h-4" />
-                  图书
+                  {t('nav.library')}
                 </button>
                 <button
                   onClick={() => setCurrentView('analytics')}
@@ -757,7 +759,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
                   }}
                 >
                   <BarChart3 className="w-4 h-4" />
-                  分析
+                  {t('notes.analytics')}
                 </button>
               </nav>
             </div>
@@ -833,11 +835,11 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
                   className="w-8 h-8"
                   style={{ color: theme === 'dark' ? '#D4A574' : '#A67C52' }}
                 />
-                <h1 
+                <h1
                   className="text-2xl font-bold"
                   style={{ color: theme === 'dark' ? '#E8DDD0' : '#3E3530' }}
                 >
-                  图书馆
+                  {t('nav.library')}
                 </h1>
               </div>
               <nav className="flex items-center gap-4">
@@ -855,7 +857,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
                     e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4A3D35' : '#D4C8B8';
                   }}
                 >
-                  图书
+                  {t('nav.library')}
                 </button>
                 <button
                   onClick={() => setCurrentView('analytics')}
@@ -874,7 +876,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
                   }}
                 >
                   <BarChart3 className="w-4 h-4" />
-                  分析
+                  {t('notes.analytics')}
                 </button>
               </nav>
             </div>
@@ -918,7 +920,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
                 }}
               >
                 <Plus className="w-5 h-5" />
-                {loading ? '导入中...' : '导入图书'}
+                {loading ? t('nav.processing') : t('nav.importEPUB')}
               </button>
             </div>
           </header>
@@ -931,11 +933,11 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
             }}
           >
             {books.length === 0 ? (
-              <div 
+              <div
                 className="flex items-center justify-center h-full"
                 style={{ color: theme === 'dark' ? '#B8A895' : '#6B5D52' }}
               >
-                <p>暂无书籍，请点击上方按钮导入书籍</p>
+                <p>{t('library.noBooks')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
@@ -1006,7 +1008,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
               }}
             >
               <ArrowLeft className="w-5 h-5" />
-              返回图书馆
+              {t('nav.backToLibrary')}
             </button>
             <div className="ml-8 flex-1">
               <h1 
@@ -1027,7 +1029,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
             className="flex items-center justify-center flex-1"
             style={{ color: theme === 'dark' ? '#B8A895' : '#6B5D52' }}
           >
-            <p>此书籍没有可用章节</p>
+            <p>{t('reader.noContent')}</p>
           </div>
         </div>
       );
@@ -1075,7 +1077,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
               }}
             >
               <ArrowLeft className="w-5 h-5" />
-              返回图书馆
+              {t('nav.backToLibrary')}
             </button>
             <div className="ml-8 flex-1">
               <h1
@@ -1283,7 +1285,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
         overflow: 'hidden'
       }}
     >
-      <p>未知视图</p>
+      <p>{t('common.error')}</p>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
