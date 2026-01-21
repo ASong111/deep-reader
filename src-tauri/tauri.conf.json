@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Deep Reader",
+  "productName": "DeepReader",
   "version": "0.1.0",
   "identifier": "com.deepreader.app",
   "build": {
