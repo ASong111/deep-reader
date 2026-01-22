@@ -1038,11 +1038,23 @@ fn get_chapter_content(app: AppHandle, _book_id: i32, chapter_id: i32) -> Result
     let chapter = irp::get_chapter_by_id(&conn, chapter_id)
         .map_err(|e| e.to_string())?;
 
+    // 调试日志：输出章节信息
+    eprintln!("[DEBUG] get_chapter_content - chapter_id: {}, render_mode: {}, has_raw_html: {}",
+        chapter_id,
+        chapter.render_mode,
+        chapter.raw_html.is_some()
+    );
+
     // 根据 render_mode 决定返回内容
     let content = match chapter.render_mode.as_str() {
         "html" => {
             // 返回原始 HTML（用于 EPUB）
-            chapter.raw_html.unwrap_or_default()
+            let html = chapter.raw_html.unwrap_or_default();
+            eprintln!("[DEBUG] Returning HTML content, length: {}", html.len());
+            if html.is_empty() {
+                eprintln!("[WARNING] HTML content is empty for chapter_id: {}", chapter_id);
+            }
+            html
         }
         "markdown" => {
             // 返回原始 Markdown（用于 MD）
@@ -1052,6 +1064,7 @@ fn get_chapter_content(app: AppHandle, _book_id: i32, chapter_id: i32) -> Result
             // 从 blocks 生成 HTML（用于 TXT、PDF）
             let blocks = irp::get_blocks_by_chapter(&conn, chapter_id)
                 .map_err(|e| e.to_string())?;
+            eprintln!("[DEBUG] Generating HTML from {} blocks", blocks.len());
             render_blocks_to_html(&blocks, &app)?
         }
     };

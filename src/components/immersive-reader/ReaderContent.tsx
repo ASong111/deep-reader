@@ -195,7 +195,7 @@ const ReaderContent = forwardRef<ReaderContentHandle, ReaderContentProps>(({
       // 匹配不在标签属性中的文本（防止破坏 HTML 标签）
       const regex = new RegExp(`(?![^<]*>)(${escapedText})`, 'g');
       const beforeReplace = content;
-      content = content.replace(regex, `<span class="${className}" data-note-id="${note.id}" title="查看笔记">$1</span>`);
+      content = content.replace(regex, `<span class="${className}" data-note-id="${note.id}" title="${t('reader.viewNote')}">$1</span>`);
       if (content !== beforeReplace) {
         replacedCount++;
       }

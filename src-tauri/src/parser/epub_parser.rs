@@ -313,8 +313,6 @@ impl EpubParser {
             let title = self.extract_title_from_html(&html_content)
                 .unwrap_or_else(|| format!("第 {} 章", chapters.len() + 1));
 
-            eprintln!("EPUB 解析 - 文件 {}: 标题={}", i, title);
-
             // EPUB 只保存原始 HTML，不生成 IRP blocks
             chapters.push(ChapterData {
                 title,
@@ -424,9 +422,21 @@ impl Parser for EpubParser {
 
         // 建立 path -> resource_id 的映射
         let mut path_to_id = std::collections::HashMap::new();
+
         for (id, resource) in doc.resources.iter() {
             let path_str = resource.path.to_string_lossy().to_string();
-            path_to_id.insert(path_str, id.clone());
+
+            // 规范化路径：统一使用正斜杠，并去除前导斜杠
+            let normalized_path = path_str.replace('\\', "/").trim_start_matches('/').to_string();
+
+            // 存储多种路径变体以提高匹配成功率
+            path_to_id.insert(path_str.clone(), id.clone());
+            path_to_id.insert(normalized_path.clone(), id.clone());
+
+            // 如果路径以 "./" 开头，也存储去掉前缀的版本
+            if let Some(stripped) = normalized_path.strip_prefix("./") {
+                path_to_id.insert(stripped.to_string(), id.clone());
+            }
         }
 
         // 建立 resource_id -> spine_index 的映射
@@ -439,16 +449,34 @@ impl Parser for EpubParser {
         let mut toc_entries = Vec::new();
         self.collect_toc_entries(&toc, &mut toc_entries);
 
-        eprintln!("EPUB 解析 - TOC 条目数: {}", toc_entries.len());
-
         // 遍历 TOC 条目，按顺序解析（不去重，保持索引连续性）
-        for (idx, nav_point) in toc_entries.iter().enumerate() {
+        for (_idx, nav_point) in toc_entries.iter().enumerate() {
             // 从 content 中提取资源路径（去掉 # 后面的锚点）
             let content_str = nav_point.content.to_string_lossy();
             let content_path = content_str.split('#').next().unwrap_or(&content_str);
 
-            // 通过 path 查找 resource_id
-            let resource_id = match path_to_id.get(content_path) {
+            // 规范化路径：统一使用正斜杠，并去除前导斜杠
+            let normalized_content_path = content_path.replace('\\', "/").trim_start_matches('/').to_string();
+
+            // 尝试多种路径变体进行查找
+            let resource_id = path_to_id.get(content_path)
+                .or_else(|| path_to_id.get(normalized_content_path.as_str()))
+                .or_else(|| {
+                    // 尝试去掉 "./" 前缀
+                    if let Some(stripped) = normalized_content_path.strip_prefix("./") {
+                        path_to_id.get(stripped)
+                    } else {
+                        None
+                    }
+                })
+                .or_else(|| {
+                    // 尝试添加 "./" 前缀
+                    let with_prefix = format!("./{}", normalized_content_path);
+                    path_to_id.get(&with_prefix)
+                })
+                .cloned();
+
+            let resource_id = match resource_id {
                 Some(id) => id,
                 None => {
                     eprintln!("警告: 找不到 TOC 条目的资源: {}", content_path);
@@ -457,7 +485,7 @@ impl Parser for EpubParser {
             };
 
             // 通过 resource_id 查找 spine_index
-            let spine_index = match id_to_spine_index.get(resource_id) {
+            let spine_index = match id_to_spine_index.get(&resource_id) {
                 Some(&idx) => idx,
                 None => {
                     eprintln!("警告: 资源不在 Spine 中: {} (id: {})", content_path, resource_id);
@@ -482,8 +510,6 @@ impl Parser for EpubParser {
 
             // 使用 TOC 中的标题
             let title = nav_point.label.clone();
-
-            eprintln!("EPUB 解析 - TOC[{}]: 标题={}, Spine[{}]", idx, title, spine_index);
 
             // EPUB 只保存原始 HTML，不生成 IRP blocks
             chapters.push(ChapterData {

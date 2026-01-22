@@ -71,7 +71,7 @@ export default function FirstTimeHint({ isOpen, onClose, theme = 'light' }: Firs
                 className="text-xs"
                 style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
               >
-                享受沉浸式阅读体验
+                {t('reader.firstTimeHint.fullscreenDesc')}
               </p>
             </div>
           </div>
@@ -100,7 +100,7 @@ export default function FirstTimeHint({ isOpen, onClose, theme = 'light' }: Firs
                 className="text-xs"
                 style={{ color: isDark ? '#B8A895' : '#6B5D52' }}
               >
-                智能助手帮你理解难点
+                {t('reader.firstTimeHint.aiExplainDesc')}
               </p>
             </div>
           </div>

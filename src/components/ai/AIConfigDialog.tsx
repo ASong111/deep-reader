@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { X, Eye, EyeOff, Save } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface AIConfig {
   id: number;
@@ -19,12 +20,12 @@ interface AIConfigDialogProps {
   onSuccess: () => void;
 }
 
-const PLATFORM_NAMES: Record<string, string> = {
-  openai: "OpenAI (GPT)",
-  "openai-cn": "OpenAI (国内)",
-  anthropic: "Anthropic (Claude)",
-  google: "Google (Gemini)",
-};
+// const PLATFORM_NAMES: Record<string, string> = {
+//   openai: "OpenAI (GPT)",
+//   "openai-cn": "OpenAI (国内)",
+//   anthropic: "Anthropic (Claude)",
+//   google: "Google (Gemini)",
+// };
 
 const DEFAULT_MODELS: Record<string, string> = {
   openai: "gpt-3.5-turbo",
@@ -45,10 +46,21 @@ export default function AIConfigDialog({
   onClose,
   onSuccess,
 }: AIConfigDialogProps) {
+  const { t } = useTranslation();
   const [configs, setConfigs] = useState<AIConfig[]>([]);
   const [editingConfig, setEditingConfig] = useState<AIConfig | null>(null);
   const [showApiKey, setShowApiKey] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(false);
+
+  const getPlatformName = (platform: string): string => {
+    const names: Record<string, string> = {
+      openai: "OpenAI (GPT)",
+      "openai-cn": t('ai.openaiCn'),
+      anthropic: "Anthropic (Claude)",
+      google: "Google (Gemini)",
+    };
+    return names[platform] || platform;
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -61,8 +73,8 @@ export default function AIConfigDialog({
       const data = await invoke<AIConfig[]>("get_ai_configs");
       setConfigs(data);
     } catch (error) {
-      console.error("加载 AI 配置失败:", error);
-      alert("加载配置失败");
+      console.error(t('ai.loadConfigFailed'), error);
+      alert(t('ai.loadConfigFailedAlert'));
     }
   };
 
@@ -74,7 +86,7 @@ export default function AIConfigDialog({
     if (!editingConfig) return;
 
     if (!editingConfig.api_key?.trim()) {
-      alert("请输入 API Key");
+      alert(t('ai.apiKeyRequired'));
       return;
     }
 
@@ -85,8 +97,8 @@ export default function AIConfigDialog({
       setEditingConfig(null);
       onSuccess();
     } catch (error) {
-      console.error("保存配置失败:", error);
-      alert(`保存失败: ${error}`);
+      console.error(t('ai.saveConfigFailed'), error);
+      alert(`${t('ai.saveConfigFailed')}: ${error}`);
     } finally {
       setLoading(false);
     }
@@ -106,7 +118,7 @@ export default function AIConfigDialog({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">AI 助手配置</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t('ai.config')}</h3>
           <button
             onClick={onClose}
             className="p-1 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
@@ -125,11 +137,11 @@ export default function AIConfigDialog({
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h4 className="font-medium text-gray-900">
-                      {PLATFORM_NAMES[config.platform] || config.platform}
+                      {getPlatformName(config.platform)}
                     </h4>
                     {config.is_active && (
                       <span className="text-xs text-green-600 font-medium">
-                        当前激活
+                        {t('ai.currentActive')}
                       </span>
                     )}
                   </div>
@@ -138,7 +150,7 @@ export default function AIConfigDialog({
                       onClick={() => handleEdit(config)}
                       className="px-3 py-1 text-sm text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
                     >
-                      配置
+                      {t('ai.configure')}
                     </button>
                   )}
                 </div>
@@ -147,7 +159,7 @@ export default function AIConfigDialog({
                   <div className="space-y-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        API Key <span className="text-red-500">*</span>
+                        {t('ai.apiKey')} <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
                         <input
@@ -159,7 +171,7 @@ export default function AIConfigDialog({
                               api_key: e.target.value,
                             })
                           }
-                          placeholder="输入 API Key"
+                          placeholder={t('ai.apiKeyPlaceholder')}
                           className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                         <button
@@ -196,7 +208,7 @@ export default function AIConfigDialog({
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        模型
+                        {t('ai.model')}
                       </label>
                       <input
                         type="text"
@@ -215,7 +227,7 @@ export default function AIConfigDialog({
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          温度 (0-2)
+                          {t('ai.temperature')} (0-2)
                         </label>
                         <input
                           type="number"
@@ -234,7 +246,7 @@ export default function AIConfigDialog({
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          最大 Token
+                          {t('ai.maxTokens')}
                         </label>
                         <input
                           type="number"
@@ -269,7 +281,7 @@ export default function AIConfigDialog({
                         htmlFor={`active-${config.id}`}
                         className="ml-2 text-sm text-gray-700"
                       >
-                        激活此配置
+                        {t('ai.activateConfig')}
                       </label>
                     </div>
 
@@ -280,22 +292,22 @@ export default function AIConfigDialog({
                         className="flex-1 px-4 py-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         <Save className="w-4 h-4" />
-                        {loading ? "保存中..." : "保存"}
+                        {loading ? t('ai.saving') : t('ai.save')}
                       </button>
                       <button
                         onClick={handleCancel}
                         className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                       >
-                        取消
+                        {t('ai.cancel')}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="text-sm text-gray-500">
                     {config.api_key ? (
-                      <span className="text-green-600">已配置</span>
+                      <span className="text-green-600">{t('ai.configured')}</span>
                     ) : (
-                      <span className="text-gray-400">未配置</span>
+                      <span className="text-gray-400">{t('ai.notConfigured')}</span>
                     )}
                   </div>
                 )}

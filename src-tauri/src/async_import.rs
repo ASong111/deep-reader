@@ -199,6 +199,15 @@ async fn process_single_import(app: AppHandle, task: ImportTask) -> Result<(), S
 
     // 保存章节和块到数据库
     for (chapter_index, chapter) in result.chapters.iter().enumerate() {
+        // 调试日志
+        eprintln!("[DEBUG] Saving chapter {}: title='{}', render_mode='{}', has_raw_html={}, raw_html_len={}",
+            chapter_index,
+            chapter.title,
+            chapter.render_mode,
+            chapter.raw_html.is_some(),
+            chapter.raw_html.as_ref().map(|h| h.len()).unwrap_or(0)
+        );
+
         let chapter_id = irp::create_chapter_with_html_and_level(
             &conn,
             task.book_id,
@@ -209,6 +218,8 @@ async fn process_single_import(app: AppHandle, task: ImportTask) -> Result<(), S
             &chapter.render_mode,
             chapter.heading_level,
         ).map_err(|e| e.to_string())?;
+
+        eprintln!("[DEBUG] Chapter saved with id: {}", chapter_id);
 
         // 只有 IRP 模式才保存 blocks（TXT、PDF）
         // EPUB 和 Markdown 不需要保存 blocks

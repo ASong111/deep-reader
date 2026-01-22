@@ -56,3 +56,5 @@ tempfile = "3.10"
 chrono = { version = "0.4", features = ["serde"] }
 # 用于 HTML 转义
 html-escape = "0.2"
+# 用于获取系统目录
+dirs = "5.0"

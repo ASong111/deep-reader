@@ -73,12 +73,12 @@ const AISidebar = ({
       });
       setExplainResult(result);
     } catch (error) {
-      console.error('AI 释义失败:', error);
+      console.error(t('ai.explainFailed'), error);
       setExplainResult(`${t('ai.explainError')}: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
     }
-  }, [bookId, chapterIndex]);
+  }, [bookId, chapterIndex, t]);
 
   // 对话模式：发送消息
   const handleSendMessage = useCallback(async () => {
@@ -113,7 +113,7 @@ const AISidebar = ({
       const aiMessage: ChatMessage = { role: 'assistant', content: response };
       setChatMessages(prev => [...prev, aiMessage]);
     } catch (error) {
-      console.error('AI 对话失败:', error);
+      console.error(t('ai.chatFailed'), error);
       const errorMessage: ChatMessage = {
         role: 'assistant',
         content: `${t('ai.chatError')}: ${error instanceof Error ? error.message : String(error)}`,
@@ -122,7 +122,7 @@ const AISidebar = ({
     } finally {
       setIsLoading(false);
     }
-  }, [inputMessage, bookId, chapterIndex, chatMessages, isLoading]);
+  }, [inputMessage, bookId, chapterIndex, chatMessages, isLoading, t]);
 
   // 切换到对话模式
   const handleSwitchToChat = useCallback(() => {

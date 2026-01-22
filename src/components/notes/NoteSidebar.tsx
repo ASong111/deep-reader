@@ -63,27 +63,27 @@ export default function NoteSidebar({
         setNotes(notesData);
       }
     } catch (error) {
-      console.error("加载笔记失败:", error);
+      console.error(t('errors.loadFailed'), error);
     }
-  }, [searchQuery, selectedCategory, selectedTagIds, startDate, endDate, sortBy, sortOrder]);
+  }, [searchQuery, selectedCategory, selectedTagIds, startDate, endDate, sortBy, sortOrder, t]);
 
   const loadCategories = useCallback(async () => {
     try {
       const categoriesData = await invoke<Category[]>("get_categories");
       setCategories(categoriesData);
     } catch (error) {
-      console.error("加载分类失败:", error);
+      console.error(t('errors.loadFailed'), error);
     }
-  }, []);
+  }, [t]);
 
   const loadTags = useCallback(async () => {
     try {
       const tagsData = await invoke<Tag[]>("get_tags");
       setTags(tagsData);
     } catch (error) {
-      console.error("加载标签失败:", error);
+      console.error(t('errors.loadFailed'), error);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadCategories();

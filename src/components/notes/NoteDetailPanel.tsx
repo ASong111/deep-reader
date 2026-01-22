@@ -76,10 +76,10 @@ export default function NoteDetailPanel({
         setSaveStatus('idle');
       }, 3000);
     } catch (error) {
-      console.error("自动保存失败:", error);
+      console.error(t('notes.saveFailed'), error);
       setSaveStatus('error');
     }
-  }, [note, editedTitle, editedContent, selectedCategoryId, selectedTagIds, onUpdate]);
+  }, [note, editedTitle, editedContent, selectedCategoryId, selectedTagIds, onUpdate, t]);
 
   // 自动保存功能
   useEffect(() => {
@@ -134,7 +134,7 @@ export default function NoteDetailPanel({
         setSaveStatus('idle');
       }, 3000);
     } catch (error) {
-      console.error("更新笔记失败:", error);
+      console.error(t('notes.updateFailed'), error);
       setSaveStatus('error');
       alert(t('notes.updateFailed'));
     }
@@ -147,7 +147,7 @@ export default function NoteDetailPanel({
         await invoke("delete_note", { id: note.id });
         onDelete(note.id);
       } catch (error) {
-        console.error("删除笔记失败:", error);
+        console.error(t('notes.deleteFailed'), error);
         alert(t('notes.deleteFailed'));
       }
     }

@@ -47,7 +47,7 @@ export default function CreateNoteDialog({
       const data = await invoke<Category[]>("get_categories");
       setCategories(data);
     } catch (error) {
-      console.error("加载分类失败:", error);
+      console.error(t('errors.loadFailed'), error);
     }
   };
 
@@ -56,7 +56,7 @@ export default function CreateNoteDialog({
       const data = await invoke<Tag[]>("get_tags");
       setTags(data);
     } catch (error) {
-      console.error("加载标签失败:", error);
+      console.error(t('errors.loadFailed'), error);
     }
   };
 
@@ -81,7 +81,7 @@ export default function CreateNoteDialog({
       onSuccess();
       handleClose();
     } catch (error) {
-      console.error("创建笔记失败:", error);
+      console.error(t('errors.saveFailed'), error);
       alert(t('errors.saveFailed'));
     }
   };

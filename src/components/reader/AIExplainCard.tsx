@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, Sparkles } from 'lucide-react';
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from 'react-i18next';
 
 interface AIExplainCardProps {
   selectedText: string;
@@ -19,6 +20,7 @@ export default function AIExplainCard({
   theme = 'light',
   onClose,
 }: AIExplainCardProps) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -37,7 +39,7 @@ export default function AIExplainCard({
         });
         setResult(explanation);
       } catch (err) {
-        console.error('AI 释义失败:', err);
+        console.error(t('ai.explainFailed'), err);
         setError(err instanceof Error ? err.message : String(err));
       } finally {
         setLoading(false);
@@ -45,7 +47,7 @@ export default function AIExplainCard({
     };
 
     fetchExplanation();
-  }, [selectedText, bookId, chapterIndex]);
+  }, [selectedText, bookId, chapterIndex, t]);
 
   // 计算卡片位置，确保不超出视口
   const getCardStyle = () => {
@@ -179,7 +181,7 @@ export default function AIExplainCard({
                 color: isDark ? '#FCA5A5' : '#DC2626',
               }}
             >
-              <p className="font-medium mb-1">释义失败</p>
+              <p className="font-medium mb-1">{t('ai.explainFailedTitle')}</p>
               <p>{error}</p>
             </div>
           )}

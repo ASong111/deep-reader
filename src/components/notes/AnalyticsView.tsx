@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { translateCategoryName } from '../../utils/categoryTranslation';
 
 export default function AnalyticsView() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [statistics, setStatistics] = useState<NoteStatistics | null>(null);
   const [categoryStats, setCategoryStats] = useState<CategoryStatistics[]>([]);
   const [tagStats, setTagStats] = useState<TagStatistics[]>([]);
@@ -29,7 +29,7 @@ export default function AnalyticsView() {
       setCategoryStats(catStats);
       setTagStats(tgStats);
     } catch (error) {
-      console.error("加载统计数据失败:", error);
+      console.error(t('analytics.loadStatsFailed'), error);
     } finally {
       setLoading(false);
     }
@@ -40,17 +40,17 @@ export default function AnalyticsView() {
   }, [loadStatistics]);
 
   const formatDuration = (seconds: number): string => {
-    if (seconds < 60) return `${seconds}秒`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}分钟`;
+    if (seconds < 60) return `${seconds}${t('analytics.seconds')}`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}${t('analytics.minutes')}`;
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}小时${minutes}分钟`;
+    return t('analytics.hoursMinutes', { hours, minutes });
   };
 
   if (loading && !statistics) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400">
-        <p>加载中...</p>
+        <p>{t('common.loading')}</p>
       </div>
     );
   }
@@ -58,7 +58,7 @@ export default function AnalyticsView() {
   if (!statistics) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400">
-        <p>暂无统计数据</p>
+        <p>{t('analytics.noStatsData')}</p>
       </div>
     );
   }
@@ -70,7 +70,7 @@ export default function AnalyticsView() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <BarChart3 className="w-6 h-6 text-indigo-600" />
-            <h2 className="text-2xl font-bold text-gray-900">数据分析</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{t('analytics.title')}</h2>
           </div>
           <div className="flex items-center gap-3">
             <input
@@ -78,15 +78,15 @@ export default function AnalyticsView() {
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="开始日期"
+              placeholder={t('notes.startDate')}
             />
-            <span className="text-gray-500">至</span>
+            <span className="text-gray-500">{t('analytics.to')}</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="结束日期"
+              placeholder={t('notes.endDate')}
             />
             {(startDate || endDate) && (
               <button
@@ -96,7 +96,7 @@ export default function AnalyticsView() {
                 }}
                 className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                清除筛选
+                {t('analytics.clearFilter')}
               </button>
             )}
           </div>
@@ -109,7 +109,7 @@ export default function AnalyticsView() {
           <div className="flex items-center justify-between mb-2">
             <FileText className="w-8 h-8 text-indigo-600" />
           </div>
-          <h3 className="text-sm font-medium text-gray-500 mb-1">总笔记数</h3>
+          <h3 className="text-sm font-medium text-gray-500 mb-1">{t('analytics.totalNotes')}</h3>
           <p className="text-3xl font-bold text-gray-900">{statistics.total_notes}</p>
         </div>
 
@@ -117,7 +117,7 @@ export default function AnalyticsView() {
           <div className="flex items-center justify-between mb-2">
             <Calendar className="w-8 h-8 text-green-600" />
           </div>
-          <h3 className="text-sm font-medium text-gray-500 mb-1">今日创建</h3>
+          <h3 className="text-sm font-medium text-gray-500 mb-1">{t('analytics.todayCreated')}</h3>
           <p className="text-3xl font-bold text-gray-900">{statistics.today_created}</p>
         </div>
 
@@ -125,7 +125,7 @@ export default function AnalyticsView() {
           <div className="flex items-center justify-between mb-2">
             <TrendingUp className="w-8 h-8 text-blue-600" />
           </div>
-          <h3 className="text-sm font-medium text-gray-500 mb-1">本周创建</h3>
+          <h3 className="text-sm font-medium text-gray-500 mb-1">{t('analytics.weekCreated')}</h3>
           <p className="text-3xl font-bold text-gray-900">{statistics.week_created}</p>
         </div>
 
@@ -133,7 +133,7 @@ export default function AnalyticsView() {
           <div className="flex items-center justify-between mb-2">
             <Clock className="w-8 h-8 text-purple-600" />
           </div>
-          <h3 className="text-sm font-medium text-gray-500 mb-1">总使用时长</h3>
+          <h3 className="text-sm font-medium text-gray-500 mb-1">{t('analytics.totalDuration')}</h3>
           <p className="text-2xl font-bold text-gray-900">
             {formatDuration(statistics.total_duration_seconds)}
           </p>
@@ -146,10 +146,10 @@ export default function AnalyticsView() {
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <FileText className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-lg font-semibold text-gray-900">分类统计</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{t('analytics.categoryStats')}</h3>
           </div>
           {categoryStats.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">暂无分类数据</p>
+            <p className="text-sm text-gray-400 text-center py-4">{t('analytics.noCategoryData')}</p>
           ) : (
             <div className="space-y-3">
               {categoryStats.map((stat) => (
@@ -164,7 +164,7 @@ export default function AnalyticsView() {
                       }
                     />
                     <span className="text-sm text-gray-700">
-                      {stat.category_name ? translateCategoryName(stat.category_name, i18n.language) : "未分类"}
+                      {stat.category_name ? translateCategoryName(stat.category_name, i18n.language) : t('analytics.uncategorized')}
                     </span>
                   </div>
                   <div className="flex items-center gap-4">
@@ -194,10 +194,10 @@ export default function AnalyticsView() {
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <TagIcon className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-lg font-semibold text-gray-900">热门标签</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{t('analytics.popularTags')}</h3>
           </div>
           {tagStats.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">暂无标签数据</p>
+            <p className="text-sm text-gray-400 text-center py-4">{t('analytics.noTagData')}</p>
           ) : (
             <div className="space-y-3">
               {tagStats.slice(0, 10).map((stat) => (
@@ -230,16 +230,16 @@ export default function AnalyticsView() {
       {/* 平均统计 */}
       <div className="px-6 pb-6">
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">平均统计</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('analytics.averageStats')}</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-gray-500 mb-1">平均每日创建数</p>
+              <p className="text-sm text-gray-500 mb-1">{t('analytics.avgDailyCreated')}</p>
               <p className="text-2xl font-bold text-gray-900">
                 {statistics.avg_daily_created.toFixed(2)}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500 mb-1">平均会话时长</p>
+              <p className="text-sm text-gray-500 mb-1">{t('analytics.avgSessionDuration')}</p>
               <p className="text-2xl font-bold text-gray-900">
                 {formatDuration(Math.floor(statistics.avg_session_duration_seconds))}
               </p>

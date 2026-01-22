@@ -171,7 +171,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
 
     // 监听导入错误事件
     const unlistenError = listen<{book_id: number, error: string}>("import-error", (event) => {
-      console.error("导入错误:", event.payload);
+      console.error(t('errors.importError'), event.payload);
       showError(`${t('errors.uploadFailed')}: ${event.payload.error}`);
       loadBooks(); // 刷新列表以显示失败状态
     });
@@ -565,7 +565,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
       setCategories(categoriesData);
       setTags(tagsData);
     } catch (error) {
-      console.error("加载分类和标签失败:", error);
+      console.error(t('errors.loadFailed'), error);
     }
   }, []);
 
@@ -578,14 +578,14 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
     if (!activeBook) return;
     try {
       const allNotes = await invoke<Note[]>("get_notes", { categoryId: null, tagId: null });
-      const filtered = allNotes.filter(n => 
+      const filtered = allNotes.filter(n =>
         n.book_id === activeBook.id && n.chapter_index === activeChapterIndex
       );
       setChapterNotes(filtered);
     } catch (error) {
-      console.error("加载章节笔记失败:", error);
+      console.error(t('errors.loadFailed'), error);
     }
-  }, [activeBook, activeChapterIndex]);
+  }, [activeBook, activeChapterIndex, t]);
 
   useEffect(() => {
     loadChapterNotes();
@@ -610,11 +610,11 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
       setNotesRefreshKey(prev => prev + 1);
       
       // 显示成功提示
-      const annotationType = type === 'highlight' ? '高亮' : '下划线';
+      const annotationType = type === 'highlight' ? t('notes.highlight') : t('reader.underline');
       const displayText = text.length > 30 ? text.substring(0, 30) + "..." : text;
-      showSuccess(`已添加${annotationType}标注: "${displayText}"`);
+      showSuccess(t('reader.annotationAdded', { type: annotationType, text: displayText }));
     } catch (error) {
-      console.error("创建标注失败:", error);
+      console.error(t('notes.saveFailed'), error);
     }
   }, [activeBook, activeChapterIndex, showSuccess]);
 
@@ -624,7 +624,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
       const note = await invoke<Note>("get_note", { id: noteId });
       setSelectedNote(note);
     } catch (error) {
-      console.error("获取笔记失败:", error);
+      console.error(t('errors.loadFailed'), error);
     }
   }, []);
 
@@ -651,9 +651,9 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
     // 显示成功提示，包含所选文本
     if (highlightedText) {
       const displayText = highlightedText.length > 30 ? highlightedText.substring(0, 30) + "..." : highlightedText;
-      showSuccess(`笔记创建成功: "${displayText}"`);
+      showSuccess(t('reader.noteCreatedWithText', { text: displayText }));
     } else {
-      showSuccess("笔记创建成功");
+      showSuccess(t('reader.noteCreatedSuccess'));
     }
     
     setHighlightedText("");
@@ -797,7 +797,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
-                title="全局设置"
+                title={t('reader.globalSettings')}
               >
                 <Settings className="w-5 h-5" />
               </button>
@@ -914,7 +914,7 @@ const ImmersiveReader = ({ theme }: ImmersiveReaderProps) => {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
-                title="全局设置"
+                title={t('reader.globalSettings')}
               >
                 <Settings className="w-5 h-5" />
               </button>

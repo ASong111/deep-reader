@@ -24,7 +24,7 @@ export default function TrashView({
       const notes = await invoke<Note[]>("get_trash_notes");
       setTrashNotes(notes);
     } catch (error) {
-      console.error("加载回收站失败:", error);
+      console.error(t('notes.loadTrashFailed'), error);
     } finally {
       setLoading(false);
     }
@@ -40,8 +40,8 @@ export default function TrashView({
       await loadTrashNotes();
       onRestore?.(id);
     } catch (error) {
-      console.error("恢复笔记失败:", error);
-      alert(`恢复失败: ${error}`);
+      console.error(t('notes.restoreNoteFailed'), error);
+      alert(`${t('notes.restoreFailed')}: ${error}`);
     }
   }, [loadTrashNotes, onRestore]);
 
@@ -54,14 +54,14 @@ export default function TrashView({
       await loadTrashNotes();
       onPermanentlyDelete?.(id);
     } catch (error) {
-      console.error("永久删除失败:", error);
+      console.error(t('notes.permanentDeleteFailed'), error);
       alert(`${t('errors.deleteFailed')}: ${error}`);
     }
   }, [loadTrashNotes, onPermanentlyDelete, t]);
 
   const handleBatchRestore = useCallback(async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`确定要恢复选中的 ${selectedIds.size} 条笔记吗？`)) {
+    if (!confirm(t('notes.confirmRestore', { count: selectedIds.size }))) {
       return;
     }
     try {
@@ -71,14 +71,14 @@ export default function TrashView({
       setSelectedIds(new Set());
       await loadTrashNotes();
     } catch (error) {
-      console.error("批量恢复失败:", error);
-      alert(`批量恢复失败: ${error}`);
+      console.error(t('notes.batchRestoreFailed'), error);
+      alert(`${t('notes.batchRestoreFailed')}: ${error}`);
     }
-  }, [selectedIds, loadTrashNotes]);
+  }, [selectedIds, loadTrashNotes, t]);
 
   const handleBatchDelete = useCallback(async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`确定要永久删除选中的 ${selectedIds.size} 条笔记吗？此操作无法撤销。`)) {
+    if (!confirm(t('notes.confirmBatchDelete', { count: selectedIds.size }))) {
       return;
     }
     try {
@@ -88,10 +88,10 @@ export default function TrashView({
       setSelectedIds(new Set());
       await loadTrashNotes();
     } catch (error) {
-      console.error("批量删除失败:", error);
-      alert(`批量删除失败: ${error}`);
+      console.error(t('notes.batchDeleteFailed'), error);
+      alert(`${t('notes.batchDeleteFailed')}: ${error}`);
     }
-  }, [selectedIds, loadTrashNotes]);
+  }, [selectedIds, loadTrashNotes, t]);
 
   const toggleSelect = useCallback((id: number) => {
     setSelectedIds(prev => {
@@ -114,7 +114,7 @@ export default function TrashView({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-neutral-400">
-        <p>加载中...</p>
+        <p>{t('common.loading')}</p>
       </div>
     );
   }
@@ -123,7 +123,7 @@ export default function TrashView({
     return (
       <div className="flex flex-col items-center justify-center h-full text-neutral-400">
         <Trash2 className="w-16 h-16 mb-4 opacity-50" />
-        <p>回收站为空</p>
+        <p>{t('notes.trashEmpty')}</p>
       </div>
     );
   }
@@ -134,7 +134,7 @@ export default function TrashView({
       {selectedIds.size > 0 && (
         <div className="flex items-center justify-between p-3 bg-neutral-700 border-b border-neutral-600">
           <span className="text-sm text-neutral-300">
-            已选中 {selectedIds.size} 项
+            {t('notes.selectedCount', { count: selectedIds.size })}
           </span>
           <div className="flex gap-2">
             <button
@@ -142,14 +142,14 @@ export default function TrashView({
               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
             >
               <RotateCcw className="w-4 h-4 inline mr-1" />
-              批量恢复
+              {t('notes.batchRestore')}
             </button>
             <button
               onClick={handleBatchDelete}
               className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors"
             >
               <X className="w-4 h-4 inline mr-1" />
-              批量删除
+              {t('notes.batchDelete')}
             </button>
           </div>
         </div>
@@ -181,7 +181,7 @@ export default function TrashView({
                 <div className="flex items-center gap-3 mt-2 text-xs text-neutral-500">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
-                    删除于: {formatDate(note.deleted_at)}
+                    {t('notes.deletedAt')}: {formatDate(note.deleted_at)}
                   </span>
                 </div>
               </div>
@@ -189,14 +189,14 @@ export default function TrashView({
                 <button
                   onClick={() => handleRestore(note.id)}
                   className="p-1.5 text-blue-400 hover:bg-blue-900/30 rounded transition-colors"
-                  title="恢复"
+                  title={t('notes.restore')}
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handlePermanentlyDelete(note.id)}
                   className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
-                  title="永久删除"
+                  title={t('notes.permanentDelete')}
                 >
                   <X className="w-4 h-4" />
                 </button>
