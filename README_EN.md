@@ -104,7 +104,10 @@ We promise to:
 
 ### Download
 
-> 🚧 **Note**: No official release yet, needs to be compiled from source
+**Windows Users**:
+- 📥 [Download Windows Installer](https://deep-reader-page.vercel.app/DeepReader-Setup.exe)
+
+> 💡 **Note**: macOS and Linux versions coming soon. Please run from source for now.
 
 ### Run from Source
 

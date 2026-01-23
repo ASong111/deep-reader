@@ -104,7 +104,10 @@ AI 可以帮你总结、帮你思考、帮你扩展知识，但它永远只是�
 
 ### 下载试用
 
-> 🚧 **注意**：目前还没有发布正式版本，需要从源码编译运行
+**Windows 用户**：
+- 📥 [下载 Windows 安装包](https://deep-reader-page.vercel.app/DeepReader-Setup.exe)
+
+> 💡 **提示**：macOS 和 Linux 版本即将推出，目前请从源码运行
 
 ### 从源码运行
 
