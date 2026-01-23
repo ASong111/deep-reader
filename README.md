@@ -1,158 +1,236 @@
 # Deep Reader (深度阅读器)
 
 <p align="center">
-  <a href="README_EN.md">English</a> | <strong>简体中文</strong>
-</p>
-
-<p align="center">
   <img src="src-tauri/icons/128x128.png" width="128" height="128" alt="Deep Reader Logo">
 </p>
 
 <p align="center">
-  <strong>一款基于 Tauri + React + Rust 构建的本地优先、隐私安全的沉浸式阅读与知识管理工具。</strong>
+  <strong>让阅读回归本质，让知识真正属于你</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Tauri-v2-blue?logo=tauri" alt="Tauri Version">
-  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" alt="React Version">
-  <img src="https://img.shields.io/badge/Rust-2021-000000?logo=rust" alt="Rust Edition">
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
-  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome">
+  <img src="https://img.shields.io/badge/Status-Early%20Alpha-orange" alt="Status">
+  <img src="https://img.shields.io/badge/License-GPL%20v3-blue" alt="License">
+  <img src="https://img.shields.io/badge/Feedback-Welcome-brightgreen" alt="Feedback Welcome">
+</p>
+
+<p align="center">
+  <strong>简体中文</strong> | <a href="README_EN.md">English</a>
 </p>
 
 ---
 
-## 🌟 项目简介
+## 💭 我们的理念
 
-Deep Reader 专为重度知识工作者、学生和隐私敏感用户设计。它不仅是一个阅读器，更是一个集成了 AI 助手的深度学习工作站。通过本地加密存储和强大的 AI 集成，Deep Reader 帮助你在享受沉浸式阅读体验的同时，高效地捕捉和管理知识。
+在这个信息爆炸的时代，我们相信：
 
-> [!IMPORTANT]
-> **本地优先**：你的数据永远属于你，除非你主动配置，否则数据不会离开你的设备。
+**阅读不应该被打断**
+没有广告、没有推荐算法、没有社交干扰。只有你和文字，专注于思考本身。
 
-## 📸 界面预览
+**保持心流状态**
+真正的深度阅读需要心流（Flow State）。AI 永远被动触发，不主动打扰。只有当你需要时，它才会出现。
 
-| 沉浸式阅读 | 知识库管理 | AI 助手互动 |
-| :---: | :---: | :---: |
-| ![阅读界面](https://via.placeholder.com/300x200?text=Reading+UI) | ![知识库](https://via.placeholder.com/300x200?text=Knowledge+Base) | ![AI 助手](https://via.placeholder.com/300x200?text=AI+Assistant) |
+**数据应该属于你自己**
+你的笔记、你的标注、你的思考——这些都是你的私人财产。它们应该存储在你的设备上，用你掌握的密钥加密，而不是躺在某个公司的服务器里。
 
-## ✨ 核心功能
+**工具应该适应人，而不是人适应工具**
+电子书的章节为什么总是那么碎？为什么版权页、目录、序言都要单独占一章？我们认为技术应该更聪明，让章节结构符合人类的阅读习惯。
 
-### 📖 沉浸式阅读器
-- **多格式支持**: 深度优化 EPUB/PDF/TXT/Markdown/HTML 导入，完美解析元数据与目录。
-- **智能章节合并**: 基于 AI 评分模型的章节合并系统，自动识别并合并版权页、目录、序言等元信息，避免章节过碎，提供符合人类阅读节奏的章节结构。
-- **排版优化**: 精心设计的阅读界面，支持图片 Base64 本地化渲染，确保离线也能流畅阅读。
-- **全屏沉浸**: 支持 `F11` 快捷键一键切换全屏模式，消除干扰，专注阅读。
-- **交互标注**: 在阅读过程中无缝进行高亮和下划线标注。
+**AI 应该是助手，不是主人**
+AI 可以帮你总结、帮你思考、帮你扩展知识，但它永远只是工具。你的思考过程、你的知识体系，始终由你自己掌控。
 
-### 📝 知识管理系统 (Zettelkasten 启发)
-- **多维组织**: 支持自定义分类与多层级标签系统，灵活管理你的知识库。
-- **智能搜索**: 基于全文检索技术，快速定位笔记标题、正文及高亮文本。
-- **回收站机制**: 误删无忧，内置回收站及 30 天自动清理功能。
+---
 
-### 🛡️ 隐私与安全
-- **AES-256 加密**: 笔记内容在本地使用 `aes-gcm` 进行高强度加密。
-- **完全本地化**: 所有数据存储在本地 SQLite 数据库中，不强制上传云端。
-- **无追踪**: 应用本身不收集任何用户行为数据。
+## 🚧 开发状态说明
 
-### 🤖 深度 AI 集成
-- **多模型支持**: 已集成 OpenAI (GPT-4), Anthropic (Claude 3), Google Gemini。
-- **智能辅助**:
-  - **总结摘要**: 一键提取长文核心要点。
-  - **思考题生成**: 基于内容生成测试题，检测理解程度。
-  - **内容扩展**: 利用 AI 深度挖掘背景知识或关联信息。
+**Deep Reader 目前处于早期开发阶段（Early Alpha）**
 
-## 🛠️ 技术栈
+这意味着：
+- ✅ 核心功能已经可用（阅读、笔记、AI 助手）
+- ⚠️ 可能存在 bug 和不稳定的情况
+- 🔄 功能和界面还在持续迭代中
+- 📝 文档还不够完善
 
-### 后端 (Rust)
-- **Tauri v2**: 跨平台桌面框架。
-- **Rusqlite**: 本地 SQLite 数据库驱动。
-- **Epub-rs**: 高效的 EPUB 解析引擎。
-- **AES-GCM**: 工业级加密算法。
-- **Reqwest**: 异步 HTTP 客户端。
+**我们需要你的帮助！**
 
-### 前端 (TypeScript)
-- **React 19**: 现代前端 UI 库。
-- **TailwindCSS**: 原子级 CSS 框架。
-- **Lucide React**: 简洁美观的图标库。
-- **Vite**: 极速构建工具。
+如果你认同我们的理念，如果你也在寻找一款真正尊重用户的阅读工具，我们诚挚地邀请你：
+
+1. **试用并反馈**：告诉我们哪里好用，哪里不好用
+2. **提出建议**：你希望看到什么功能？你的阅读习惯是什么？
+3. **报告问题**：遇到 bug？请在 [Issues](https://github.com/ASong111/deep-reader/issues) 告诉我们
+4. **参与开发**：如果你懂技术，欢迎贡献代码
+
+我们承诺：
+- 认真对待每一条反馈
+- 保持项目的开源和透明
+- 永远坚持"本地优先、隐私至上"的原则
+
+---
+
+## ✨ 核心特性
+
+### 📖 专注的阅读体验
+
+- **多格式支持**：EPUB、PDF、TXT、Markdown、HTML 一个都不少
+- **智能章节整理**：自动识别并合并版权页、目录、序言等内容，让章节结构更合理
+- **沉浸式界面**：精心设计的排版，`F11` 全屏模式，消除一切干扰
+- **随手标注**：阅读时直接高亮和标注，思考不中断
+
+### 🔒 你的数据，你做主
+
+- **完全本地化**：所有数据存储在你的设备上，不上传任何服务器
+- **AES-256 加密**：笔记内容使用军事级加密算法保护
+- **无追踪无广告**：我们不收集你的任何行为数据
+
+### 📝 灵活的知识管理
+
+- **自由组织**：用分类和标签构建你自己的知识体系
+- **快速检索**：全文搜索，瞬间找到你需要的内容
+- **安全删除**：回收站机制，误删也不怕
+
+### 🤖 AI 助手（可选）
+
+- **多模型支持**：OpenAI、Claude、Gemini 任你选择
+- **智能辅助**：总结摘要、生成思考题、扩展知识
+- **隐私保护**：API Key 存储在本地，你可以随时删除
+
+---
 
 ## 🚀 快速开始
 
-### 前置要求
+### 下载试用
 
-在开始之前，请确保你的系统已安装：
-- **Rust**: [安装指南](https://www.rust-lang.org/tools/install)
-- **Node.js**: v18+ 
-- **pnpm**: `npm install -g pnpm`
-- **系统依赖**: 请参考 [Tauri 依赖安装指南](https://v2.tauri.app/guides/getting-started/prerequisites/) (尤其是 Linux 用户需安装 `build-essential`, `webkit2gtk` 等)。
+> 🚧 **注意**：目前还没有发布正式版本，需要从源码编译运行
 
-### 安装与运行
+### 从源码运行
 
-1. **克隆项目**
-   ```bash
-   git clone https://github.com/your-username/deep-reader.git
-   cd deep-reader
-   ```
+**前置要求**：
+- Rust ([安装指南](https://www.rust-lang.org/tools/install))
+- Node.js (v18+) 和 pnpm (`npm install -g pnpm`)
+- 系统依赖：参考 [Tauri 安装指南](https://v2.tauri.app/guides/getting-started/prerequisites/)
 
-2. **安装依赖**
-   ```bash
-   pnpm install
-   ```
+**步骤**：
 
-3. **启动开发环境**
-   ```bash
-   pnpm tauri dev
-   ```
+```bash
+# 1. 克隆项目
+git clone https://github.com/ASong111/deep-reader.git
+cd deep-reader
 
-4. **AI 配置**
-   在应用内的“设置”界面中填写您的 API Key。目前支持 OpenAI, Anthropic 和 Gemini。
+# 2. 安装依赖
+pnpm install
 
-## 📂 项目结构
-
-```text
-├── src/                # 前端 React 代码
-│   ├── components/     # UI 组件
-│   ├── hooks/          # 自定义 Hooks
-│   ├── utils/          # 工具函数
-│   └── types/          # 类型定义
-├── src-tauri/          # Rust 后端
-│   ├── src/
-│   │   ├── lib.rs      # 指令处理
-│   │   ├── db.rs       # 数据库层
-│   │   ├── encryption.rs # 加密逻辑
-│   │   ├── parser/     # 多格式解析器
-│   │   └── reading_unit/ # 智能章节合并系统
-│   └── Cargo.toml      # Rust 依赖
-└── docs/               # 项目文档
+# 3. 启动开发环境
+pnpm tauri dev
 ```
 
-## 🎯 核心技术亮点
+**配置 AI 助手（可选）**：
+在应用内的设置界面填写你的 API Key（支持 OpenAI、Claude、Gemini）
 
-### 智能章节合并系统 (Reading Unit Builder)
+---
 
-Deep Reader 实现了一套先进的章节合并评分系统，解决了传统电子书阅读器章节过碎的问题：
+## 💡 为什么要做 Deep Reader？
 
-#### 🧠 工作原理
+### 现有阅读工具的问题
 
-系统通过 **6 维度评分模型** 智能判断章节是否应该合并：
+我们在使用各种阅读软件时，总会遇到这些困扰：
 
-1. **TOC 语义分** (权重 1.5) - 基于目录结构的层级判断
-2. **标题强度分** (权重 1.2) - 识别强章标题（第X章）vs 弱标题（1.1小节）
-3. **长度合理性分** (权重 1.0) - 避免过短或过长的章节
-4. **内容类型分** (权重 1.0) - 自动识别版权页、目录、序言等元信息
-5. **位置惩罚分** (权重 0.8) - 考虑章节在书中的位置
-6. **连续性分** (权重 0.8) - 判断章节编号是否连续
+- **章节太碎**：一本书被拆成几百个章节，版权页、目录、序言都单独占一章
+- **数据不安全**：笔记存在云端，担心隐私泄露，担心服务关闭
+- **功能臃肿**：要么功能太少不够用，要么功能太多找不到需要的
+- **被算法绑架**：推荐、社交、广告，阅读变成了被打断的碎片
 
-#### ✨ 核心特性
+### Deep Reader 的解决方案
 
-- **格式无关**: 支持 EPUB/PDF/TXT/Markdown/HTML 所有格式
-- **智能识别**: 自动识别并合并版权页、目录、序言等前言内容
-- **两层结构**: 支持章-节两层层级，完美适配技术书籍
-- **可解释性**: 每个决策都有明确的评分明细和原因
-- **降级策略**: 评分失败时自动使用简单规则，确保系统稳定性
-- **完整测试**: 46 个单元测试和集成测试，确保代码质量
+我们用技术解决这些问题：
 
-#### 📊 效果对比
+**智能章节整理**
+通过 AI 评分模型，自动识别章节的重要性和层级关系，把版权页、目录、序言等内容合并到合适的位置，让章节结构符合人类阅读习惯。
+
+**本地优先架构**
+所有数据存储在你的设备上，用 AES-256 加密保护。你可以随时备份、导出、删除，完全掌控自己的数据。
+
+**专注的设计**
+只做阅读和笔记该做的事，不做社交、不做推荐、不做广告。界面简洁，操作直观。
+
+---
+
+## 🎯 适合谁使用？
+
+Deep Reader 可能适合你，如果你：
+
+- 📚 经常阅读技术书籍、学术论文、长篇文章
+- 🔐 重视隐私，不想把笔记存在别人的服务器上
+- 🧠 喜欢做笔记、建立知识体系
+- 🤖 想用 AI 辅助学习，但不想被 AI 主导
+- 💻 喜欢开源软件，愿意参与改进
+
+---
+
+## 🛣️ 开发计划
+
+**近期目标**（1-2 个月）：
+- [ ] 优化 PDF 解析质量
+- [ ] 添加笔记导出功能（Markdown/Notion）
+- [ ] 改进界面交互细节
+- [ ] 完善文档和使用指南
+
+**中期目标**（3-6 个月）：
+- [ ] 支持更多 AI 模型
+- [ ] 添加数据同步功能（加密同步）
+- [ ] 支持自定义 AI Prompt 模板
+- [ ] 移动端适配
+
+**长期愿景**：
+打造一个真正尊重用户、保护隐私、专注阅读的知识管理生态。
+
+---
+
+## 🤝 如何参与？
+
+### 作为用户
+
+1. **试用并反馈**
+   - 下载试用，告诉我们你的使用体验
+   - 在 [Issues](https://github.com/ASong111/deep-reader/issues) 提出建议和问题
+   - 加入讨论，分享你的阅读习惯和需求
+
+2. **传播理念**
+   - 如果你认同我们的理念，请分享给朋友
+   - 给项目一个 ⭐️，让更多人看到
+
+### 作为开发者
+
+1. **贡献代码**
+   - Fork 项目，提交 Pull Request
+   - 参考 [开发文档](docs/development.md) 了解技术细节
+   - 查看 [CLAUDE.md](CLAUDE.md) 了解项目架构
+
+2. **改进文档**
+   - 完善使用指南
+   - 翻译文档到其他语言
+   - 分享你的使用技巧
+
+### 联系我们
+
+- **GitHub Issues**：[提交问题和建议](https://github.com/ASong111/deep-reader/issues)
+- **Discussions**：[参与讨论](https://github.com/ASong111/deep-reader/discussions)
+
+---
+
+## 📚 技术亮点
+
+### 智能章节合并系统
+
+这是 Deep Reader 的核心创新之一。我们开发了一套基于 6 维度评分模型的智能章节合并系统：
+
+- **TOC 语义分析**：理解目录结构的层级关系
+- **标题强度识别**：区分"第一章"和"1.1 小节"
+- **长度合理性判断**：避免章节过短或过长
+- **内容类型识别**：自动识别版权页、目录、序言等
+- **位置感知**：考虑章节在书中的位置
+- **连续性分析**：判断章节编号是否连续
+
+**效果对比**：
 
 | 传统解析 | 智能合并后 |
 |---------|-----------|
@@ -163,61 +241,49 @@ Deep Reader 实现了一套先进的章节合并评分系统，解决了传统�
 | 1.1 小节 | ├─ 1.1 小节 |
 | 1.2 小节 | └─ 1.2 小节 |
 
-#### 🔧 技术实现
+详细技术文档：[章节合并评分规则 PRD](docs/章节合并评分规则_prd.md)
 
-```
-Parser (格式相关)
- ↓
-Segment Builder → 构建候选片段
- ↓
-Feature Extractor → 提取 6 维特征
- ↓
-Scoring Engine → 计算加权评分
- ↓
-Decision Engine → 4 层优先级决策
- ↓
-Reading Unit Builder → 构建最终结构
- ↓
-持久化到数据库
-```
+### 技术栈
 
-详细设计文档请参考：[章节合并评分规则 PRD](docs/章节合并评分规则_prd.md)
+- **后端**：Rust + Tauri v2 + SQLite
+- **前端**：React 19 + TypeScript + TailwindCSS
+- **加密**：AES-256-GCM
+- **解析**：EPUB/PDF/Markdown/TXT/HTML 多格式支持
 
 ---
-
-## 🛣️ 路线图 (Roadmap)
-- [x] 支持 PDF 格式导入
-- [x] 支持 Markdown/TXT/HTML 格式导入
-- [x] 智能章节合并系统
-- [ ] Debug 面板可视化（评分明细展示）
-- [ ] 用户设置：显示/隐藏前言内容
-- [ ] AI 章节摘要生成
-- [ ] 导出笔记为 Markdown/Notion
-- [ ] 移动端适配 (Tauri Mobile)
-- [ ] 自定义 AI Prompt 模板
-- [ ] 多端数据同步 (加密同步)
-
-## 🤝 贡献指南
-
-我们非常欢迎任何形式的贡献！
-1. Fork 本项目。
-2. 创建您的特性分支 (`git checkout -b feature/AmazingFeature`)。
-3. 提交您的更改 (`git commit -m 'Add some AmazingFeature'`)。
-4. 推送到分支 (`git push origin feature/AmazingFeature`)。
-5. 开启一个 Pull Request。
-
-请参考 [开发文档](docs/development.md) 了解更多细节。
 
 ## 📄 开源协议
 
 本项目采用 [GPL v3](LICENSE) 许可协议。
 
+这意味着：
+- ✅ 你可以自由使用、修改、分发
+- ✅ 你可以用于商业目的
+- ⚠️ 修改后的版本也必须开源
+- ⚠️ 必须保留原作者信息
+
+---
+
+## 🙏 致谢
+
+感谢所有为开源社区做出贡献的开发者。
+
+Deep Reader 基于以下优秀的开源项目构建：
+- [Tauri](https://tauri.app/) - 跨平台桌面应用框架
+- [React](https://react.dev/) - 用户界面库
+- [Rust](https://www.rust-lang.org/) - 系统编程语言
+- 以及其他众多开源库（详见 package.json 和 Cargo.toml）
+
 ---
 
 <p align="center">
-  如果这个项目对你有帮助，请给它一个 ⭐️！
+  <strong>让阅读回归本质，让知识真正属于你</strong>
 </p>
 
 <p align="center">
-  Made with ❤️ by Deep Reader Team
+  如果你认同这个理念，请给我们一个 ⭐️
+</p>
+
+<p align="center">
+  <sub>Made with ❤️ by developers who love reading</sub>
 </p>

@@ -1,242 +1,290 @@
 # Deep Reader
 
 <p align="center">
-  <strong>English</strong> | <a href="README.md">简体中文</a>
-</p>
-
-<p align="center">
   <img src="src-tauri/icons/128x128.png" width="128" height="128" alt="Deep Reader Logo">
 </p>
 
 <p align="center">
-  <strong>A local-first, privacy-focused immersive reading and knowledge management tool built with Tauri + React + Rust.</strong>
+  <strong>Bring reading back to its essence. Your knowledge, truly yours.</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Tauri-v2-blue?logo=tauri" alt="Tauri Version">
-  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" alt="React Version">
-  <img src="https://img.shields.io/badge/Rust-2021-000000?logo=rust" alt="Rust Edition">
-  <img src="https://img.shields.io/badge/License-GPL--3.0-green" alt="License">
-  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome">
+  <img src="https://img.shields.io/badge/Status-Early%20Alpha-orange" alt="Status">
+  <img src="https://img.shields.io/badge/License-GPL%20v3-blue" alt="License">
+  <img src="https://img.shields.io/badge/Feedback-Welcome-brightgreen" alt="Feedback Welcome">
+</p>
+
+<p align="center">
+  <a href="README.md">简体中文</a> | <strong>English</strong>
 </p>
 
 ---
 
-## 🌟 Overview
+## 💭 Our Philosophy
 
-Deep Reader is designed for knowledge workers, students, and privacy-conscious users. It's not just a reader—it's a deep learning workstation with integrated AI assistance. Through local encrypted storage and powerful AI integration, Deep Reader helps you capture and manage knowledge efficiently while enjoying an immersive reading experience.
+In this age of information overload, we believe:
 
-> [!IMPORTANT]
-> **Local-first**: Your data belongs to you. Unless you explicitly configure it, your data never leaves your device.
+**Reading should not be interrupted**
+No ads, no recommendation algorithms, no social distractions. Just you and the text, focused on thinking itself.
 
-## 🌍 Languages
+**Maintain your flow state**
+True deep reading requires flow state. AI is always passively triggered, never actively interrupting. It only appears when you need it.
 
-Deep Reader supports multiple languages:
-- **English** (Default)
-- **简体中文** (Chinese Simplified)
+**Your data should belong to you**
+Your notes, your highlights, your thoughts—these are your private property. They should be stored on your device, encrypted with keys you control, not sitting on some company's server.
 
-You can switch languages in Settings → General → Language.
+**Tools should adapt to people, not the other way around**
+Why are e-book chapters always so fragmented? Why do copyright pages, tables of contents, and prefaces each occupy a separate chapter? We believe technology should be smarter, making chapter structures align with human reading habits.
+
+**AI should be an assistant, not a master**
+AI can help you summarize, think, and expand knowledge, but it's always just a tool. Your thinking process and knowledge system remain under your control.
+
+---
+
+## 🚧 Development Status
+
+**Deep Reader is currently in early development stage (Early Alpha)**
+
+This means:
+- ✅ Core features are functional (reading, notes, AI assistant)
+- ⚠️ There may be bugs and instability
+- 🔄 Features and UI are continuously iterating
+- 📝 Documentation is still incomplete
+
+**We need your help!**
+
+If you share our philosophy, if you're also looking for a reading tool that truly respects users, we sincerely invite you to:
+
+1. **Try and provide feedback**: Tell us what works well and what doesn't
+2. **Share suggestions**: What features would you like to see? What are your reading habits?
+3. **Report issues**: Encountered a bug? Please tell us in [Issues](https://github.com/ASong111/deep-reader/issues)
+4. **Contribute code**: If you're technical, contributions are welcome
+
+We promise to:
+- Take every piece of feedback seriously
+- Keep the project open source and transparent
+- Always uphold the principle of "local-first, privacy-first"
+
+---
 
 ## ✨ Core Features
 
-### 📖 Immersive Reader
-- **Multi-format Support**: Optimized import for EPUB/PDF/TXT/Markdown/HTML with perfect metadata and TOC parsing.
-- **Intelligent Chapter Merging**: AI-powered chapter merging system that automatically identifies and merges copyright pages, TOC, prefaces, and other metadata to avoid fragmented chapters.
-- **Typography Optimization**: Carefully designed reading interface with Base64 image localization for smooth offline reading.
-- **Fullscreen Immersion**: Press `F11` to toggle fullscreen mode and eliminate distractions.
-- **Interactive Annotations**: Seamlessly highlight and underline text while reading.
+### 📖 Focused Reading Experience
 
-### 📝 Knowledge Management (Zettelkasten-inspired)
-- **Multi-dimensional Organization**: Custom categories and multi-level tag system for flexible knowledge base management.
-- **Smart Search**: Full-text search across note titles, content, and highlighted text.
-- **Trash Mechanism**: Built-in trash with 30-day auto-cleanup for worry-free deletion.
+- **Multi-format support**: EPUB, PDF, TXT, Markdown, HTML—all supported
+- **Smart chapter organization**: Automatically identifies and merges copyright pages, tables of contents, prefaces, etc., making chapter structure more reasonable
+- **Immersive interface**: Carefully designed typography, `F11` fullscreen mode, eliminating all distractions
+- **Quick annotations**: Highlight and annotate directly while reading, without interrupting your flow
 
-### 🛡️ Privacy & Security
-- **AES-256 Encryption**: Note content encrypted locally using `aes-gcm`.
-- **Fully Local**: All data stored in local SQLite database, no forced cloud upload.
-- **No Tracking**: The app collects no user behavior data.
+### 🔒 Your Data, Your Control
 
-### 🤖 Deep AI Integration
-- **Multi-model Support**: Integrated with OpenAI (GPT-4), Anthropic (Claude 3), Google Gemini.
-- **Smart Assistance**:
-  - **Summarization**: Extract key points from long texts with one click.
-  - **Question Generation**: Generate test questions based on content to check comprehension.
-  - **Content Expansion**: Use AI to dig deeper into background knowledge or related information.
+- **Fully local**: All data stored on your device, no uploads to any server
+- **AES-256 encryption**: Note content protected with military-grade encryption
+- **No tracking, no ads**: We don't collect any of your behavioral data
 
-## 🛠️ Tech Stack
+### 📝 Flexible Knowledge Management
 
-### Backend (Rust)
-- **Tauri v2**: Cross-platform desktop framework
-- **Rusqlite**: Local SQLite database driver
-- **Epub-rs**: Efficient EPUB parsing engine
-- **AES-GCM**: Industrial-grade encryption
-- **Reqwest**: Async HTTP client
+- **Free organization**: Build your own knowledge system with categories and tags
+- **Fast search**: Full-text search to instantly find what you need
+- **Safe deletion**: Recycle bin mechanism, no worries about accidental deletion
 
-### Frontend (TypeScript)
-- **React 19**: Modern UI library
-- **TailwindCSS**: Atomic CSS framework
-- **Lucide React**: Clean and beautiful icon library
-- **Vite**: Lightning-fast build tool
-- **i18next**: Internationalization framework
+### 🤖 AI Assistant (Optional)
+
+- **Multi-model support**: Choose from OpenAI, Claude, or Gemini
+- **Smart assistance**: Summarize, generate study questions, expand knowledge
+- **Privacy protection**: API keys stored locally, you can delete them anytime
+
+---
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Download
 
-Before starting, ensure your system has:
-- **Rust**: [Installation Guide](https://www.rust-lang.org/tools/install)
-- **Node.js**: v18+
-- **pnpm**: `npm install -g pnpm`
-- **System Dependencies**: See [Tauri Prerequisites](https://v2.tauri.app/guides/getting-started/prerequisites/) (Linux users need `build-essential`, `webkit2gtk`, etc.)
+> 🚧 **Note**: No official release yet, needs to be compiled from source
 
-### Installation & Running
+### Run from Source
 
-1. **Clone the project**
-   ```bash
-   git clone https://github.com/your-username/deep-reader.git
-   cd deep-reader
-   ```
+**Prerequisites**:
+- Rust ([Installation Guide](https://www.rust-lang.org/tools/install))
+- Node.js (v18+) and pnpm (`npm install -g pnpm`)
+- System dependencies: See [Tauri Prerequisites](https://v2.tauri.app/guides/getting-started/prerequisites/)
 
-2. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
+**Steps**:
 
-3. **Start development environment**
-   ```bash
-   pnpm tauri dev
-   ```
+```bash
+# 1. Clone the repository
+git clone https://github.com/ASong111/deep-reader.git
+cd deep-reader
 
-4. **AI Configuration**
-   Fill in your API Key in the Settings interface. Currently supports OpenAI, Anthropic, and Gemini.
+# 2. Install dependencies
+pnpm install
 
-## 📂 Project Structure
-
-```text
-├── src/                # Frontend React code
-│   ├── components/     # UI components
-│   ├── hooks/          # Custom hooks
-│   ├── utils/          # Utility functions
-│   ├── types/          # Type definitions
-│   └── locales/        # Translation files
-│       ├── en/         # English translations
-│       └── zh-CN/      # Chinese translations
-├── src-tauri/          # Rust backend
-│   ├── src/
-│   │   ├── lib.rs      # Command handlers
-│   │   ├── db.rs       # Database layer
-│   │   ├── encryption.rs # Encryption logic
-│   │   ├── parser/     # Multi-format parsers
-│   │   └── reading_unit/ # Intelligent chapter merging system
-│   └── Cargo.toml      # Rust dependencies
-└── docs/               # Project documentation
+# 3. Start development environment
+pnpm tauri dev
 ```
 
-## 🎯 Technical Highlights
+**Configure AI Assistant (Optional)**:
+Fill in your API Key in the app's settings interface (supports OpenAI, Claude, Gemini)
 
-### Intelligent Chapter Merging System (Reading Unit Builder)
+---
 
-Deep Reader implements an advanced chapter merging scoring system that solves the problem of overly fragmented chapters in traditional e-book readers:
+## 💡 Why Deep Reader?
 
-#### 🧠 How It Works
+### Problems with Existing Reading Tools
 
-The system uses a **6-dimensional scoring model** to intelligently determine whether chapters should be merged:
+When using various reading software, we often encounter these frustrations:
 
-1. **TOC Semantic Score** (weight 1.5) - Judgment based on TOC hierarchy
-2. **Title Strength Score** (weight 1.2) - Identifies strong chapter titles (Chapter X) vs weak titles (Section 1.1)
-3. **Length Reasonability Score** (weight 1.0) - Avoids chapters that are too short or too long
-4. **Content Type Score** (weight 1.0) - Automatically identifies copyright pages, TOC, prefaces, etc.
-5. **Position Penalty Score** (weight 0.8) - Considers chapter position in the book
-6. **Continuity Score** (weight 0.8) - Determines if chapter numbering is continuous
+- **Fragmented chapters**: A book split into hundreds of chapters, with copyright pages, tables of contents, and prefaces each taking up a separate chapter
+- **Data insecurity**: Notes stored in the cloud, worrying about privacy leaks and service shutdowns
+- **Feature bloat**: Either too few features to be useful, or too many to find what you need
+- **Algorithm captivity**: Recommendations, social features, ads—reading becomes interrupted fragments
 
-#### ✨ Key Features
+### Deep Reader's Solutions
 
-- **Format-agnostic**: Supports all formats (EPUB/PDF/TXT/Markdown/HTML)
-- **Smart Recognition**: Automatically identifies and merges copyright pages, TOC, prefaces, etc.
-- **Two-level Structure**: Supports chapter-section hierarchy, perfect for technical books
-- **Explainability**: Every decision has clear scoring details and reasoning
-- **Fallback Strategy**: Automatically uses simple rules when scoring fails, ensuring system stability
-- **Comprehensive Testing**: 46 unit and integration tests ensure code quality
+We use technology to solve these problems:
 
-#### 📊 Before & After
+**Smart Chapter Organization**
+Through an AI scoring model, automatically identifies chapter importance and hierarchical relationships, merging copyright pages, tables of contents, prefaces, etc., into appropriate positions, making chapter structure align with human reading habits.
+
+**Local-First Architecture**
+All data stored on your device, protected with AES-256 encryption. You can backup, export, or delete anytime, maintaining complete control over your data.
+
+**Focused Design**
+Only does what reading and note-taking should do—no social features, no recommendations, no ads. Clean interface, intuitive operation.
+
+---
+
+## 🎯 Who Is This For?
+
+Deep Reader might be right for you if you:
+
+- 📚 Frequently read technical books, academic papers, or long-form articles
+- 🔐 Value privacy and don't want notes stored on someone else's server
+- 🧠 Enjoy taking notes and building knowledge systems
+- 🤖 Want AI to assist learning, but not dominate it
+- 💻 Appreciate open source software and are willing to help improve it
+
+---
+
+## 🛣️ Development Roadmap
+
+**Near-term goals** (1-2 months):
+- [ ] Improve chapter organization visualization/debugging tools
+- [ ] Optimize PDF parsing quality
+- [ ] Add note export functionality (Markdown/Notion)
+- [ ] Improve UI interaction details
+- [ ] Complete documentation and user guides
+
+**Mid-term goals** (3-6 months):
+- [ ] Support more AI models
+- [ ] Add data sync functionality (encrypted sync)
+- [ ] Support custom AI prompt templates
+- [ ] Mobile adaptation
+
+**Long-term vision**:
+Build a knowledge management ecosystem that truly respects users, protects privacy, and focuses on reading.
+
+---
+
+## 🤝 How to Participate?
+
+### As a User
+
+1. **Try and provide feedback**
+   - Download and try it, tell us about your experience
+   - Submit suggestions and issues in [Issues](https://github.com/ASong111/deep-reader/issues)
+   - Join discussions, share your reading habits and needs
+
+2. **Spread the word**
+   - If you share our philosophy, please tell your friends
+   - Give the project a ⭐️ to help more people discover it
+
+### As a Developer
+
+1. **Contribute code**
+   - Fork the project and submit Pull Requests
+   - See [Development Documentation](docs/development.md) for technical details
+   - Check [CLAUDE.md](CLAUDE.md) for project architecture
+
+2. **Improve documentation**
+   - Complete user guides
+   - Translate documentation to other languages
+   - Share your usage tips
+
+### Contact Us
+
+- **GitHub Issues**: [Submit issues and suggestions](https://github.com/ASong111/deep-reader/issues)
+- **Discussions**: [Join discussions](https://github.com/ASong111/deep-reader/discussions)
+
+---
+
+## 📚 Technical Highlights
+
+### Smart Chapter Merging System
+
+This is one of Deep Reader's core innovations. We developed a smart chapter merging system based on a 6-dimensional scoring model:
+
+- **TOC semantic analysis**: Understand hierarchical relationships in table of contents structure
+- **Title strength recognition**: Distinguish between "Chapter 1" and "Section 1.1"
+- **Length reasonableness judgment**: Avoid chapters that are too short or too long
+- **Content type identification**: Automatically identify copyright pages, tables of contents, prefaces, etc.
+- **Position awareness**: Consider chapter position within the book
+- **Continuity analysis**: Determine if chapter numbering is sequential
+
+**Effect comparison**:
 
 | Traditional Parsing | After Smart Merging |
-|---------------------|---------------------|
-| Copyright Page (separate chapter) | ✅ Merged into Chapter 1 |
-| Table of Contents (separate chapter) | ✅ Merged into Chapter 1 |
-| Preface (separate chapter) | ✅ Merged into Chapter 1 |
-| Chapter 1 | Chapter 1 (includes preface content) |
+|---------|-----------|
+| Copyright page (separate chapter) | ✅ Merged into first chapter |
+| Table of contents (separate chapter) | ✅ Merged into first chapter |
+| Preface (separate chapter) | ✅ Merged into first chapter |
+| Chapter 1 | Chapter 1 (includes front matter) |
 | Section 1.1 | ├─ Section 1.1 |
 | Section 1.2 | └─ Section 1.2 |
 
-#### 🔧 Technical Implementation
+Detailed technical documentation: [Chapter Merging Scoring Rules PRD](docs/章节合并评分规则_prd.md)
 
-```
-Parser (format-specific)
- ↓
-Segment Builder → Build candidate segments
- ↓
-Feature Extractor → Extract 6-dimensional features
- ↓
-Scoring Engine → Calculate weighted scores
- ↓
-Decision Engine → 4-tier priority decision system
- ↓
-Reading Unit Builder → Build final structure
- ↓
-Persist to database
-```
+### Tech Stack
 
-For detailed design documentation, see: [Chapter Merging Scoring Rules PRD](docs/章节合并评分规则_prd.md)
+- **Backend**: Rust + Tauri v2 + SQLite
+- **Frontend**: React 19 + TypeScript + TailwindCSS
+- **Encryption**: AES-256-GCM
+- **Parsing**: Multi-format support for EPUB/PDF/Markdown/TXT/HTML
 
 ---
-
-## 🛣️ Roadmap
-
-- [x] PDF format import support
-- [x] Markdown/TXT/HTML format import support
-- [x] Intelligent chapter merging system
-- [x] Multi-language support (English, Chinese)
-- [ ] Debug panel visualization (scoring details display)
-- [ ] User settings: show/hide preface content
-- [ ] AI chapter summary generation
-- [ ] Export notes to Markdown/Notion
-- [ ] Mobile adaptation (Tauri Mobile)
-- [ ] Custom AI prompt templates
-- [ ] Multi-device data sync (encrypted sync)
-
-## 🤝 Contributing
-
-We welcome all forms of contribution!
-
-1. Fork this project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-### Translation Contributions
-
-We especially welcome translations to new languages. To add a new language:
-
-1. Create a new translation file in `src/locales/[language-code]/translation.json`
-2. Copy the structure from `src/locales/en/translation.json`
-3. Translate all keys to the target language
-4. Update `src/i18n.ts` to include the new language
-5. Add the language option to `src/components/common/LanguageSwitcher.tsx`
-
-See [Development Guide](docs/development.md) for more details.
 
 ## 📄 License
 
-This project is licensed under the [GPL v3](LICENSE) license.
+This project is licensed under [GPL v3](LICENSE).
+
+This means:
+- ✅ You can freely use, modify, and distribute
+- ✅ You can use it for commercial purposes
+- ⚠️ Modified versions must also be open source
+- ⚠️ Must retain original author information
+
+---
+
+## 🙏 Acknowledgments
+
+Thanks to all developers who contribute to the open source community.
+
+Deep Reader is built on these excellent open source projects:
+- [Tauri](https://tauri.app/) - Cross-platform desktop application framework
+- [React](https://react.dev/) - User interface library
+- [Rust](https://www.rust-lang.org/) - Systems programming language
+- And many other open source libraries (see package.json and Cargo.toml)
 
 ---
 
 <p align="center">
-  If this project helps you, please give it a ⭐️!
+  <strong>Bring reading back to its essence. Your knowledge, truly yours.</strong>
 </p>
 
 <p align="center">
-  Made with ❤️ by Deep Reader Team
+  If you share this philosophy, please give us a ⭐️
+</p>
+
+<p align="center">
+  <sub>Made with ❤️ by developers who love reading</sub>
 </p>
