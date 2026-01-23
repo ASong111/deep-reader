@@ -18,6 +18,10 @@
   <strong>简体中文</strong> | <a href="README_EN.md">English</a>
 </p>
 
+<p align="center">
+  🌐 <a href="https://deep-reader-page.vercel.app/">官方网站</a>
+</p>
+
 ---
 
 ## 💭 我们的理念
